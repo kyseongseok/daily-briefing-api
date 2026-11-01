@@ -171,7 +171,7 @@ function catView() {
   return `<header class="hd"><div class="hd-row"><button type="button" class="backbtn" data-back>‹ 분야별</button></div></header><div class="scroll">${catDetailHTML(S.catView.id, false)}</div>`;
 }
 function scrapView() {
-  const mine = S.arts.filter((a) => S.scrap.has(a.id));
+  const mine = scrapList();
   const t = teamOf(scrapTab);
   const body = !t
     ? (mine.length ? `<div class="list">${mine.map((a) => itemHTML(a)).join("")}</div>` : `<div class="none">아직 스크랩한 기사가 없어요.<br>기사 옆 별표를 누르면 여기에 모여요.</div>`)
@@ -213,19 +213,6 @@ function go(t) { const changed = t !== tab; tab = t; if (changed) FX.enter = "#s
 
 loadPrefs();
 bindCommon(app, render);
-function doRefresh(btn, onGo) {
-  btn.classList.remove("spin"); void btn.offsetWidth; btn.classList.add("spin");
-  setTimeout(() => {
-    if (!freshLeft) { toast(app, "새 기사가 없어요 · 방금 확인했어요"); return; }
-    freshLeft = false;
-    S.arts.unshift({ id: "n1", cat: "spo", fresh: true, title: "한화이글스, 외국인 투수 재계약 협상 시작", src: "☆☆스포츠", time: "방금" }, { id: "n2", cat: "it", fresh: true, media: 2, title: "정부, 공공 AI 활용 우수사례 공모 시작", src: "◇◇뉴스", time: "방금" });
-    S.cats.forEach((c) => { c.count = artsOf(c.id).length; });
-    render();
-    const p = document.createElement("button"); p.type = "button"; p.className = "newpill"; p.dataset.gonew = ""; p.textContent = "새 기사 2건 · 분야별에서 보기"; app.append(p);
-    setTimeout(() => p.remove(), 5000);
-    setTimeout(() => S.arts.forEach((a) => delete a.fresh), 2500);
-  }, 800);
-}
 bindSync(app);
 bindStats(app, render);
 bindCat(app, render);
@@ -234,7 +221,7 @@ app.addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.dataset.tab) { quick = false; go(b.dataset.tab); return; }
   if (b.dataset.quick !== undefined) { quick = !quick; render(); return; }
-  if (b.dataset.refresh !== undefined) { doRefresh(b, () => { go("topics"); }); return; }
+  if (b.dataset.refresh !== undefined) { refreshNews(app, b, render); return; }
   if (b.dataset.hxgo !== undefined) { $$(".hx", app).forEach((n) => n.remove()); go("dex"); return; }
   if (b.dataset.hxclose !== undefined) { $$(".hx", app).forEach((n) => n.remove()); return; }
   if (b.dataset.gonew !== undefined) { $$(".newpill", app).forEach((n) => n.remove()); go("topics"); return; }
@@ -249,7 +236,7 @@ app.addEventListener("click", (e) => {
   if (b.dataset.delcat) { S.cats = S.cats.filter((c) => c.id !== b.dataset.delcat); savePrefs(); render(); toast(app, "분야를 삭제했어요"); return; }
   if (b.dataset.replay !== undefined) { playIntro(app); return; }
 });
-render();
+bootNews(render);
 if (!sessionStorage.getItem("db-intro")) { sessionStorage.setItem("db-intro", "1"); playIntro(app); }
 </script>
 </body>

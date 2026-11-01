@@ -21,7 +21,7 @@ const S = {
   arts: [
     { id: "a1", cat: "agri", top: true, media: 12, title: "노지 스마트농업 시범지구 운영 결과 공개… 내년 확대 검토", src: "○○일보", time: "2시간 전",
       sum: "시범지구에서 확인된 생산성·노동력 변화와 확대 계획을 발표했다. 현장 농업인 의견 수렴 일정도 함께 안내했다.",
-      rel: [["△△신문", "노지 스마트농업 시범지구 성과… 확대 여부 관심"], ["□□경제", "\"스마트농업 시범지구, 내년 지역 늘린다\""], ["◇◇뉴스", "현장 농업인 \"인력 부담 줄었다\""]] },
+      relCount: 11, rel: [["△△신문", "노지 스마트농업 시범지구 성과… 확대 여부 관심"], ["□□경제", "\"스마트농업 시범지구, 내년 지역 늘린다\""], ["◇◇뉴스", "현장 농업인 \"인력 부담 줄었다\""]] },
     { id: "a2", cat: "agri", pick: 2, media: 7, title: "기후변화로 사과 재배지 북상… 품종 전환 논의 본격화", src: "△△신문", time: "4시간 전" },
     { id: "a3", cat: "it", pick: 3, title: "생성형 AI, 농업 현장 상담 서비스에 도입 확대", src: "□□경제", time: "5시간 전" },
     { id: "a4", cat: "sci", pick: 4, title: "그린바이오 산업 육성 R&D 예산안, 상임위 논의 시작", src: "◇◇뉴스", time: "6시간 전" },
@@ -99,15 +99,77 @@ function loadPrefs() {
     if (MODES.some((m) => m[0] === p.mode)) S.mode = p.mode;
     if (SIZES.some((s) => s[0] === p.size)) S.size = p.size;
     if (Array.isArray(p.scrap)) S.scrap = new Set(p.scrap);
+    if (p.saved && typeof p.saved === "object") S.saved = p.saved;
     if (p.readDay === todayKey() && Array.isArray(p.read)) S.read = new Set(p.read); else S.read = new Set();
     if (Array.isArray(p.cats) && p.cats.length) S.cats = p.cats.map((c) => ({ ...c, count: artsOf(c.id).length }));
   } catch (e) {}
 }
 function savePrefs() {
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify({ mode: S.mode, size: S.size, scrap: [...S.scrap], read: [...S.read], readDay: todayKey(),
+    localStorage.setItem(STORE_KEY, JSON.stringify({ mode: S.mode, size: S.size, scrap: [...S.scrap], saved: Object.fromEntries([...S.scrap].filter((id) => S.saved[id]).map((id) => [id, S.saved[id]])), read: [...S.read], readDay: todayKey(),
       cats: S.cats.map(({ id, name, p, words, ex, user }) => ({ id, name, p, words, ex, user })) }));
   } catch (e) {}
+}
+
+/* ── 기사 불러오기: /api/news (네이버 뉴스 검색) ──
+   - 분야마다 검색어로 불러와 같은 소식은 묶어서 받음
+   - 오늘 받은 기사는 이 브라우저에 보관해서 다음에 열 때 바로 보여 줌
+   - 서버가 아직 없거나 실패하면 예시 기사를 그대로 둠 */
+const NEWS_KEY = "daily-briefing-news";
+S.live = false; S.saved = {};
+function ago(t) {
+  const m = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if (m < 1) return "방금"; if (m < 60) return `${m}분 전`; const h = Math.floor(m / 60); if (h < 24) return `${h}시간 전`; return "어제";
+}
+function applyNews(byCat) {
+  const arts = [];
+  S.cats.forEach((c) => (byCat[c.id] || []).forEach((g) => { if (!arts.some((a) => a.id === g.id)) arts.push({ ...g, cat: c.id, time: ago(g.t), relCount: g.media > 1 ? g.media - 1 : (g.rel || []).length }); }));
+  // 오늘 꼭 볼 기사: 여러 매체가 다룬 소식 순, 같으면 최신 순. 1위는 크게(요약·관련 기사), 2~5위는 번호 목록
+  const ranked = arts.slice().sort((a, b) => (b.media - a.media) || (b.t - a.t));
+  ranked.slice(0, 5).forEach((a, i) => { if (i === 0) a.top = true; else a.pick = i + 1; });
+  S.arts = arts;
+  S.cats.forEach((c) => { c.count = artsOf(c.id).length; });
+  S.live = true;
+}
+async function fetchNews() {
+  const out = {};
+  await Promise.all(S.cats.map(async (c) => {
+    const q = (c.words || []).join(","); if (!q) { out[c.id] = []; return; }
+    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 8000);
+    try {
+      const r = await fetch(`/api/news?q=${encodeURIComponent(q)}&ex=${encodeURIComponent((c.ex || []).join(","))}`, { signal: ctl.signal });
+      if (!r.ok) throw new Error(r.status);
+      out[c.id] = (await r.json()).items || [];
+    } finally { clearTimeout(tm); }
+  }));
+  try { localStorage.setItem(NEWS_KEY, JSON.stringify({ day: todayKey(), at: Date.now(), byCat: out })); } catch (e) {}
+  return out;
+}
+function loadCachedNews() {
+  try { const c = JSON.parse(localStorage.getItem(NEWS_KEY) || "null"); if (c && c.day === todayKey()) { applyNews(c.byCat); return true; } } catch (e) {}
+  return false;
+}
+/* 스크랩한 기사는 다음 날에도 보이게 따로 보관 */
+function rememberScrap(id) { const a = S.arts.find((x) => x.id === id); if (a) S.saved[id] = { id: a.id, cat: a.cat, title: a.title, src: a.src, link: a.link, t: a.t, time: a.time }; }
+function scrapList() { return [...S.scrap].map((id) => S.arts.find((a) => a.id === id) || S.saved[id]).filter(Boolean).map((a) => ({ ...a, time: a.t ? ago(a.t) : a.time })); }
+/* 새로고침: 다시 불러와서 새로 생긴 기사 수를 알려 줌 */
+async function refreshNews(app, btn, rerender, onNew) {
+  btn.classList.remove("spin"); void btn.offsetWidth; btn.classList.add("spin");
+  const before = new Set(S.arts.map((a) => a.id));
+  try {
+    applyNews(await fetchNews());
+    const fresh = S.arts.filter((a) => !before.has(a.id));
+    fresh.forEach((a) => { a.fresh = true; });
+    rerender();
+    if (!fresh.length) { toast(app, "새 기사가 없어요 · 방금 확인했어요"); return; }
+    const p = document.createElement("button"); p.type = "button"; p.className = "newpill"; p.dataset.gonew = ""; p.textContent = `새 기사 ${fresh.length}건 · 분야별에서 보기`; app.append(p);
+    setTimeout(() => p.remove(), 5000); setTimeout(() => S.arts.forEach((a) => delete a.fresh), 2500);
+  } catch (e) { toast(app, "기사를 불러오지 못했어요 · 잠시 뒤 다시 눌러 주세요"); }
+}
+/* 처음 열 때: 보관된 오늘 기사 → 바로 표시, 그 뒤 서버에서 최신으로 */
+async function bootNews(rerender) {
+  loadCachedNews(); rerender();
+  try { applyNews(await fetchNews()); rerender(); } catch (e) { /* 서버 준비 전에는 예시 기사 유지 */ }
 }
 
 function applyAppVars(app) {
@@ -125,19 +187,22 @@ function itemHTML(a, opts = {}) {
     <div class="b"><button type="button" class="t" data-open="${a.id}">${esc(a.title)}</button><div class="m">${meta}</div></div>
     <button type="button" class="ib" data-scrap="${a.id}" aria-pressed="${S.scrap.has(a.id)}" aria-label="스크랩">${ICON.star}</button></article>`;
 }
+const relCount = (a) => a.relCount != null ? a.relCount : (a.rel || []).length;
 function topHTML(withRel = true) {
-  const a = S.arts.find((x) => x.top), c = cat(a.cat);
-  const rel = withRel ? `<div class="relbox${S.relOpen && !FX.relAnim ? " open" : ""}"><div class="relin">${a.rel.map(([m, t]) => `<div><span>${esc(m)}</span>${esc(t)}</div>`).join("")}<div style="color:var(--faint)">외 8건</div></div></div>` : "";
-  return `<article class="top"><div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"><span class="chip issue">이슈 · <b class="num">${a.media}</b>개 매체</span>${chipCat(c)}</div>
+  const a = S.arts.find((x) => x.top); if (!a) return `<div class="none">오늘 기사를 불러오는 중이에요</div>`;
+  const c = cat(a.cat), rels = a.rel || [], n = relCount(a), more = n - rels.length;
+  const rel = withRel && rels.length ? `<div class="relbox${S.relOpen && !FX.relAnim ? " open" : ""}"><div class="relin">${rels.map(([m, t]) => `<div><span>${esc(m)}</span>${esc(t)}</div>`).join("")}${more > 0 ? `<div style="color:var(--faint)">외 ${more}건</div>` : ""}</div></div>` : "";
+  const info = `${esc(a.src)} · ${a.time}${n ? ` · 관련 ${n}건` : ""}`;
+  return `<article class="top"><div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${a.media ? `<span class="chip issue">이슈 · <b class="num">${a.media}</b>개 매체</span>` : ""}${chipCat(c)}</div>
     <button type="button" class="t" data-open="${a.id}" style="background:none;border:none;padding:0;text-align:left;color:inherit">${esc(a.title)}</button>
-    <p class="sum">${esc(a.sum)}</p>
-    <div class="m">${withRel ? `<button type="button" class="relbtn" data-rel aria-expanded="${!!S.relOpen}" style="margin-right:auto">${esc(a.src)} · ${a.time} · 관련 ${a.rel.length + 8}건 <span>${S.relOpen ? "▴" : "▾"}</span></button>` : `<span style="margin-right:auto">${esc(a.src)} · ${a.time} · 관련 ${a.rel.length + 8}건</span>`}
+    ${a.sum ? `<p class="sum">${esc(a.sum)}</p>` : ""}
+    <div class="m">${withRel && rels.length ? `<button type="button" class="relbtn" data-rel aria-expanded="${!!S.relOpen}" style="margin-right:auto">${info} <span>${S.relOpen ? "▴" : "▾"}</span></button>` : `<span style="margin-right:auto">${info}</span>`}
       <button type="button" class="ib" data-scrap="${a.id}" aria-pressed="${S.scrap.has(a.id)}" aria-label="스크랩">${ICON.star}</button>
       <button type="button" class="ib" data-share="${a.id}" aria-label="공유">${ICON.share}</button></div>${rel}</article>`;
 }
 function secHTML(c, limit = 2, edit = false) {
   const list = artsOf(c.id).filter((a) => !a.top).slice(0, limit);
-  const body = list.length ? list.map((a) => itemHTML(a, { chip: false })).join("") : `<div class="empty">실제 앱에서는 검색어(${esc((c.words || []).join(", ") || "-")})로 기사를 찾아 여기에 모아요.</div>`;
+  const body = list.length ? list.map((a) => itemHTML(a, { chip: false })).join("") : `<div class="empty">${!S.live ? `검색어(${esc((c.words || []).join(", ") || "-")})로 기사를 찾아 여기에 모아요.` : c.count ? "이 분야 기사는 위 '오늘 꼭 볼 기사'에 있어요." : `오늘은 아직 새 기사가 없어요 · 검색어: ${esc((c.words || []).join(", ") || "-")}`}</div>`;
   return `<section class="sec" style="${cvars(c)}"><div class="sec-h"><span class="nm">${esc(c.name)}</span><span class="ct">새 기사 ${c.count}</span>${edit ? `<button type="button" class="more" data-edit="${c.id}" style="margin-left:auto">수정</button><button type="button" class="more" data-more="${c.id}" style="margin-left:10px">전체 ›</button>` : `<button type="button" class="more" data-more="${c.id}">전체 ›</button>`}</div>${body}</section>`;
 }
 function attHTML() {
@@ -230,11 +295,11 @@ function bindCommon(app, rerender) {
         FX.attDone = true; DEX.days += 1; DEX.streak += 1;
         if (DEX.days % 5 === 0) { const nx = DEX.items.find((x) => !owned(x) && x.kind !== "legend"); if (nx) { nx.got = md(new Date()); nx.line = nx.line || "오늘 출석으로 만난 새 친구예요."; FX.hatch = nx.id; } }
         else toast(app, `오늘 출석 완료! 다음 친구까지 출석 ${5 - (DEX.days % 5)}일`);
-      } else toast(app, art && art.link ? "기사를 새 창으로 열었어요" : "예시 기사예요 · 기사 연결 후 원문이 열려요");
+      } else if (!(art && art.link)) toast(app, "예시 기사예요 · 기사 연결 후 원문이 열려요");
       rerender(); return;
     }
     if (t.dataset.rel !== undefined) { S.relOpen = !S.relOpen; FX.relAnim = S.relOpen; rerender(); return; }
-    if (t.dataset.scrap) { const id = t.dataset.scrap; S.scrap.has(id) ? S.scrap.delete(id) : S.scrap.add(id); savePrefs(); if (S.scrap.has(id)) FX.star = id; toast(app, S.scrap.has(id) ? "스크랩함에 담았어요" : "스크랩을 뺐어요"); rerender(); return; }
+    if (t.dataset.scrap) { const id = t.dataset.scrap; if (S.scrap.has(id)) S.scrap.delete(id); else { S.scrap.add(id); rememberScrap(id); } savePrefs(); if (S.scrap.has(id)) FX.star = id; toast(app, S.scrap.has(id) ? "스크랩함에 담았어요" : "스크랩을 뺐어요"); rerender(); return; }
     if (t.dataset.share) { openSheet(app, "share", t.dataset.share); return; }
     if (t.dataset.close !== undefined) { closeSheet(app); return; }
     if (t.dataset.copy) {
@@ -250,7 +315,7 @@ function bindCommon(app, rerender) {
       const d = S.draft;
       if (d.id) { Object.assign(cat(d.id), { name: d.name.trim(), p: d.p, words: d.words.slice(), ex: d.ex.slice() }); toast(app, `'${d.name.trim()}' 분야를 저장했어요 · 다음 새로고침부터 반영`); }
       else { S.cats.push({ id: "u" + Date.now(), name: d.name.trim(), p: d.p, count: 0, words: d.words.slice(), ex: d.ex.slice(), user: true }); toast(app, `'${d.name.trim()}' 분야를 추가했어요`); }
-      savePrefs(); closeSheet(app); rerender(); return;
+      savePrefs(); closeSheet(app); rerender(); if (S.live) fetchNews().then((n) => { applyNews(n); rerender(); }).catch(() => {}); return;
     }
     if (t.dataset.delask !== undefined) {
       const d = S.draft;

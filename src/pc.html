@@ -142,7 +142,8 @@ function quickPC() {
 }
 function topPC() {
   const a = S.arts.find((x) => x.top);
-  return topHTML(false).replace("</article>", `<div class="rel"><b>같은 소식을 다룬 기사 ${a.rel.length + 8}건</b>${a.rel.map(([s, t]) => `<div><span>${esc(s)}</span><span>${esc(t)}</span></div>`).join("")}</div></article>`);
+  if (!a || !(a.rel || []).length) return topHTML(false);
+  return topHTML(false).replace("</article>", `<div class="rel"><b>같은 소식을 다룬 기사 ${relCount(a)}건</b>${a.rel.map(([s, t]) => `<div><span>${esc(s)}</span><span>${esc(t)}</span></div>`).join("")}</div></article>`);
 }
 function asideHTML() {
   const n = Math.min(3, S.read.size);
@@ -175,7 +176,7 @@ function topicsPC() {
     <div class="grid3">${S.cats.map((c) => secHTML(c, 5, true)).join("")}<button type="button" class="addcard" data-addopen>+ 분야 추가</button></div></section></div>`;
 }
 function scrapPC() {
-  const mine = S.arts.filter((a) => S.scrap.has(a.id));
+  const mine = scrapList();
   return `<div class="wrap main"><section class="col">
     <div class="h2row"><h2>내 스크랩 ${mine.length}</h2></div>
     ${mine.length ? `<div class="list">${mine.map((a) => itemHTML(a)).join("")}</div>` : `<div class="none">아직 스크랩한 기사가 없어요. 기사 옆 별표를 누르면 여기에 모여요.</div>`}
@@ -241,17 +242,7 @@ app.addEventListener("click", (e) => {
   if (b.dataset.setmode) { S.mode = b.dataset.setmode; savePrefs(); render(); return; }
   if (b.dataset.size) { S.size = +b.dataset.size; savePrefs(); render(); return; }
   if (b.dataset.delcat) { S.cats = S.cats.filter((c) => c.id !== b.dataset.delcat); savePrefs(); render(); return; }
-  if (b.dataset.refresh !== undefined) {
-    b.classList.remove("spin"); void b.offsetWidth; b.classList.add("spin");
-    setTimeout(() => {
-      if (!freshLeft) { toast(app, "새 기사가 없어요 · 방금 확인했어요"); return; }
-      freshLeft = false;
-      S.arts.unshift({ id: "n1", cat: "spo", fresh: true, title: "한화이글스, 외국인 투수 재계약 협상 시작", src: "☆☆스포츠", time: "방금" }, { id: "n2", cat: "it", fresh: true, media: 2, title: "정부, 공공 AI 활용 우수사례 공모 시작", src: "◇◇뉴스", time: "방금" });
-      S.cats.forEach((c) => { c.count = artsOf(c.id).length; }); render();
-      const p = document.createElement("button"); p.type = "button"; p.className = "newpill"; p.dataset.gonew = ""; p.textContent = "새 기사 2건 · 분야별에서 보기"; app.append(p);
-      setTimeout(() => p.remove(), 5000); setTimeout(() => S.arts.forEach((a) => delete a.fresh), 2500);
-    }, 800); return;
-  }
+  if (b.dataset.refresh !== undefined) { refreshNews(app, b, render); return; }
   if (b.dataset.gonew !== undefined) { $$(".newpill", app).forEach((n) => n.remove()); tab = "topics"; FX.enter = ".main"; render(); window.scrollTo(0, 0); return; }
   if (b.dataset.hxgo !== undefined) { $$(".hx", app).forEach((n) => n.remove()); tab = "dex"; render(); window.scrollTo(0, 0); return; }
   if (b.dataset.hxclose !== undefined) { $$(".hx", app).forEach((n) => n.remove()); return; }
@@ -260,7 +251,7 @@ app.addEventListener("click", (e) => {
   if (b.dataset.weekly !== undefined) { const txt = (teamOf(b.dataset.weekly) || S.teams[0]).items.map((x) => `□ ${x.title} (${x.who})`).join("\n"); try { navigator.clipboard.writeText(txt).catch(() => {}); } catch (err) {} toast(app, "이번 주 모음을 복사했어요"); return; }
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drawer) { drawer = false; render(); } });
-render();
+bootNews(render);
 if (!sessionStorage.getItem("db-intro")) { sessionStorage.setItem("db-intro", "1"); playIntro(app); }
 </script>
 </body>

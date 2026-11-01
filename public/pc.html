@@ -149,13 +149,11 @@ function asideHTML() {
   const n = Math.min(3, S.read.size);
   return `<aside class="aside">
     <section class="card"><h3>오늘의 읽기</h3>
-      <div class="stats"><div><small>오늘 읽음</small><b>${n}<span> / 3</span></b></div><div><small>연속 출석</small><b>6<span>일</span></b></div><div><small>이번 달</small><b>18<span>일</span></b></div></div>
+      <div class="stats"><div><small>오늘 읽음</small><b>${n}<span> / 3</span></b></div><div><small>연속 출석</small><b>${DEX.streak}<span>일</span></b></div><div><small>누적 출석</small><b>${DEX.days}<span>일</span></b></div></div>
       <div style="display:flex;flex-direction:column;gap:6px"><small style="font-size:12px;color:var(--faint)">오늘 기사 ${S.cats.reduce((x, c) => x + c.count, 0)}건 · 분야별</small>
       <div class="mix" aria-hidden="true">${S.cats.filter((c) => c.count).map((c) => `<i style="flex:${c.count};${cvars(c)}" title="${esc(c.name)} ${c.count}건"></i>`).join("")}</div></div>
       <button type="button" class="dx-mini" data-tab="dex" style="border:none;background:var(--bg);border-radius:var(--r-s);padding:10px 12px;text-align:left;color:var(--ink)"><img src="${IMG.think}" alt=""><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:13px">다음 친구까지 출석 ${5 - (DEX.days % 5)}일</b><small style="font-size:12px;color:var(--faint)">도감 ${DEX.items.filter(owned).length} / 100 · 도감 보기 ›</small></span></button></section>
-    <section class="card"><h3>연구제도팀 스크랩<span class="chip" style="background:#E8EFFF;color:#1D4ED8">이번 주 ${S.team.length}건</span></h3>
-      ${S.team.map((x) => `<div class="titem"><a href="#" onclick="return false">${esc(x.title)}</a><small>${esc(x.who)} 님이 담음${x.note ? ` · "${esc(x.note)}"` : ""}</small></div>`).join("")}
-      <button type="button" class="wide" data-weekly>주간 모음 복사 · 메신저용</button></section>
+    <section class="card"><h3>팀 스크랩함</h3><div style="font-size:13px;color:var(--sub);line-height:1.6">팀원과 기사를 함께 모으고, 주간 모음을 메신저로 보낼 수 있어요. 서버 연결 뒤 곧 열려요.</div></section>
     <section class="card" style="flex-direction:row;align-items:center"><div class="mini" aria-hidden="true"><i style="background:#F3F6FB;${S.mode === "basic" ? "border:2px solid #2457E6" : ""}"></i><i style="background:#F4F1EA;${S.mode === "jogan" ? "border:2px solid #2457E6" : ""}"></i><i style="background:#FBF8F1;${S.mode === "digest" ? "border:2px solid #2457E6" : ""}"></i></div>
       <div style="flex:1"><div style="font-size:13px;font-weight:700">디자인 바꾸기</div><div style="font-size:12px;color:var(--faint)">기본 · 조간 · 다이제스트</div></div><button type="button" class="act" data-drawer>열기</button></section>
   </aside>`;
@@ -215,7 +213,7 @@ function drawerHTML() {
     <section class="card"><h3>디자인</h3><div class="thumbs">${MODES.map(([m, nm]) => `<button type="button" data-setmode="${m}" aria-pressed="${S.mode === m}"><span class="pv" style="${pv[m]}"></span>${nm}</button>`).join("")}</div><small style="font-size:12px;color:var(--faint)">바꿔도 내용·스크랩은 그대로예요</small></section>
     <section class="card"><h3>글자 크기<span style="margin-left:auto;font-size:13px;font-weight:600;color:var(--sub)">${sz[1]} · ${Math.round(S.size * 100)}%</span></h3><div class="steps">${SIZES.map(([v, nm], i) => `<button type="button" data-size="${v}" aria-pressed="${S.size === v}" aria-label="${nm}" style="font-size:${13 + i * 3}px">가</button>`).join("")}</div></section>
     <section class="card" style="gap:2px"><h3 style="padding-bottom:6px">내 분야</h3>${S.cats.map((c) => `<button type="button" class="mycat" data-edit="${c.id}" style="${cvars(c)}"><i></i>${esc(c.name)}<span>검색어 ${(c.words || []).length}개</span><em>수정 ›</em></button>`).join("")}</section>
-    <section class="card"><h3>PC·휴대폰 동기화 <button type="button" class="qhelp" data-synchelp aria-label="동기화 사용 방법">?</button></h3><small style="font-size:13px;color:var(--sub)">내 코드 DB-7KQ2-···· · 기기 2대 연결됨</small><button type="button" class="act" style="justify-content:center" data-sync>코드 보기 · 기기 연결</button></section>
+    <section class="card"><h3>PC·휴대폰 동기화 <button type="button" class="qhelp" data-synchelp aria-label="동기화 사용 방법">?</button></h3><small style="font-size:13px;color:var(--sub)">곧 열려요 · 지금은 이 기기에만 저장돼요</small><button type="button" class="act" style="justify-content:center" data-sync>코드 보기 · 기기 연결</button></section>
     ${CREDIT}
   </aside>`;
 }
@@ -225,7 +223,7 @@ function render() {
   if (tab === "dex" && 5 - (DEX.days % 5) === 1) { const e = $(".dx-egg", app); if (e) e.classList.add("wob"); }
   applyFX(app);
 }
-loadPrefs();
+loadPrefs(); loadDex();
 bindCommon(app, render);
 bindSync(app);
 bindStats(app, render);

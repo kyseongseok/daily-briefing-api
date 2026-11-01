@@ -16,7 +16,6 @@ const S = {
     { id: "sci", name: "과학·바이오", p: 1, count: 5, words: ["그린바이오", "유전자교정", "생명공학"], ex: [] },
     { id: "it", name: "IT·AI", p: 2, count: 6, words: ["생성형 AI", "인공지능", "디지털 전환"], ex: ["AI 스피커"] },
     { id: "pol", name: "정책·제도", p: 3, count: 3, words: ["연구직 공무원", "R&D 예산", "농업 정책"], ex: [] },
-    { id: "spo", name: "스포츠", p: 4, count: 2, words: ["한화이글스", "프로야구"], ex: ["한화솔루션", "한화오션"] },
   ],
   arts: [
     { id: "a1", cat: "agri", top: true, media: 12, title: "노지 스마트농업 시범지구 운영 결과 공개… 내년 확대 검토", src: "○○일보", time: "2시간 전",
@@ -49,13 +48,9 @@ const S = {
     { id: "a26", cat: "spo", title: "한화이글스 신인 드래프트 지명 선수 발표", src: "○○일보", time: "4시간 전" },
     { id: "a27", cat: "spo", title: "전국체전 개막… 지역 선수단 출전", src: "△△신문", time: "어제" },
   ],
-  read: new Set(["a3"]),
-  scrap: new Set(["a12"]),
-  team: [
-    { who: "민지", title: "연구직 공무원 처우 개선 논의 본격화", cat: "pol", note: "팀 회의 때 공유" },
-    { who: "경석", title: "출연연 연구개발 제도 개편안 발표", cat: "pol" },
-    { who: "지훈", title: "국가 R&D 예산 배분 방향 공개", cat: "sci", note: "보고서 근거" },
-  ],
+  read: new Set(),
+  scrap: new Set(),
+  team: [],
   sheet: null, draft: null,
 };
 const MODES = [["basic", "기본"], ["jogan", "조간"], ["digest", "다이제스트"]];
@@ -92,7 +87,7 @@ const dotDate = (d = new Date()) => `${d.getFullYear()}. ${d.getMonth() + 1}. ${
 const WD_ = ["일", "월", "화", "수", "목", "금", "토"];
 
 /* 저장(이 브라우저): 디자인·글자 크기·스크랩·오늘 읽은 기사·내 분야. 5단계에서 Supabase로 옮겨요 */
-const STORE_KEY = "daily-briefing-v1";
+const STORE_KEY = "daily-briefing-v2"; // v1은 예시 데이터가 섞여 있어서 새로 시작
 function loadPrefs() {
   try {
     const p = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
@@ -288,23 +283,28 @@ function bindCommon(app, rerender) {
   app.addEventListener("click", (e) => {
     const t = e.target.closest("button, [data-close]"); if (!t || !app.contains(t)) return;
     if (t.dataset.open) {
-      const id = t.dataset.open, was = S.read.has(id), before = S.read.size; S.read.add(id); savePrefs();
+      const id = t.dataset.open, was = S.read.has(id), before = S.read.size; S.read.add(id); savePrefs(); if (!was) { DEX.reads += 1; saveDex(); }
       const art = S.arts.find((a) => a.id === id); if (art && art.link) window.open(art.link, "_blank", "noopener");
       if (!was) { FX.read = id; if (before < 3) FX.att = S.read.size; }
       if (!was && before < 3 && S.read.size >= 3) {
-        FX.attDone = true; DEX.days += 1; DEX.streak += 1;
-        if (DEX.days % 5 === 0) { const nx = DEX.items.find((x) => !owned(x) && x.kind !== "legend"); if (nx) { nx.got = md(new Date()); nx.line = nx.line || "오늘 출석으로 만난 새 친구예요."; FX.hatch = nx.id; } }
-        else toast(app, `오늘 출석 완료! 다음 친구까지 출석 ${5 - (DEX.days % 5)}일`);
+        FX.attDone = true;
+        const y = new Date(); y.setDate(y.getDate() - 1); const yk = `${y.getFullYear()}-${y.getMonth() + 1}-${y.getDate()}`;
+        DEX.streak = DEX.last === yk ? DEX.streak + 1 : 1; DEX.days += 1; DEX.last = todayKey();
+        const pool = DEX.items.filter((x) => !owned(x) && x.kind !== "legend" && x.img);
+        if (DEX.days === 1) { const w = DEX.items.find((x) => x.id === "i-wave"); if (w && !owned(w)) { w.got = md(new Date()); FX.hatch = w.id; } saveDex(); }
+        else if (DEX.days % 5 === 0) { const nx = pool[Math.floor(Math.random() * pool.length)]; if (nx) { nx.got = md(new Date()); nx.line = nx.line || "오늘 출석으로 만난 새 친구예요."; FX.hatch = nx.id; } saveDex(); }
+        else { saveDex(); toast(app, `오늘 출석 완료! 다음 친구까지 출석 ${5 - (DEX.days % 5)}일`); }
       } else if (!(art && art.link)) toast(app, "예시 기사예요 · 기사 연결 후 원문이 열려요");
       rerender(); return;
     }
     if (t.dataset.rel !== undefined) { S.relOpen = !S.relOpen; FX.relAnim = S.relOpen; rerender(); return; }
-    if (t.dataset.scrap) { const id = t.dataset.scrap; if (S.scrap.has(id)) S.scrap.delete(id); else { S.scrap.add(id); rememberScrap(id); } savePrefs(); if (S.scrap.has(id)) FX.star = id; toast(app, S.scrap.has(id) ? "스크랩함에 담았어요" : "스크랩을 뺐어요"); rerender(); return; }
+    if (t.dataset.scrap) { const id = t.dataset.scrap; if (S.scrap.has(id)) S.scrap.delete(id); else { S.scrap.add(id); rememberScrap(id); } savePrefs(); saveDex(); if (S.scrap.has(id)) FX.star = id; toast(app, S.scrap.has(id) ? "스크랩함에 담았어요" : "스크랩을 뺐어요"); rerender(); return; }
     if (t.dataset.share) { openSheet(app, "share", t.dataset.share); return; }
     if (t.dataset.close !== undefined) { closeSheet(app); return; }
     if (t.dataset.copy) {
+      DEX.shares += 1; saveDex();
       const text = $("#copytext", app).textContent;
-      const msg = { kakao: "카카오톡 공유 창이 열려요 (실제 앱)", msg: "복사했어요 · 메신저에 붙여넣으세요", link: "링크를 복사했어요", team: `${S.teams[0].name} 스크랩함에 담았어요` }[t.dataset.copy];
+      const msg = { kakao: "카카오톡 공유 창이 열려요 (실제 앱)", msg: "복사했어요 · 메신저에 붙여넣으세요", link: "링크를 복사했어요", team: "팀 스크랩함은 곧 열려요" }[t.dataset.copy];
       if (t.dataset.copy === "msg" || t.dataset.copy === "link") { try { navigator.clipboard.writeText(text).catch(() => {}); } catch (err) {} }
       toast(app, msg); closeSheet(app); return;
     }
@@ -342,84 +342,105 @@ function bindCommon(app, rerender) {
 /* ── 도감: 이삭이 · 새싹이 ── 출석 5일마다 1마리(이삭이/새싹이 중 랜덤), 전설은 업적으로 */
 const IMG = {"basket": "assets/img/basket.webp", "cheer": "assets/img/cheer.webp", "crossed": "assets/img/crossed.webp", "magnifier": "assets/img/magnifier.webp", "megaphone": "assets/img/megaphone.webp", "rake": "assets/img/rake.webp", "run": "assets/img/run.webp", "skate": "assets/img/skate.webp", "sleepy": "assets/img/sleepy.webp", "think": "assets/img/think.webp", "wave": "assets/img/wave.webp", "egg": "assets/img/egg.webp", "eggTop": "assets/img/eggTop.webp", "eggBot": "assets/img/eggBot.webp", "gEgg": "assets/img/gEgg.webp", "gEggTop": "assets/img/gEggTop.webp", "gEggBot": "assets/img/gEggBot.webp", "center": "assets/img/center.webp", "kkeok": "assets/img/kkeok.webp", "band": "assets/img/band.webp", "drib": "assets/img/drib.webp", "bat": "assets/img/bat.webp", "kick": "assets/img/kick.webp", "hike": "assets/img/hike.webp", "lab": "assets/img/lab.webp", "ai": "assets/img/ai.webp", "drone": "assets/img/drone.webp", "paper": "assets/img/paper.webp", "cow": "assets/img/cow.webp", "hanwoo": "assets/img/hanwoo.webp", "apple": "assets/img/apple.webp", "pear": "assets/img/pear.webp", "tangerine": "assets/img/tangerine.webp", "scarecrow": "assets/img/scarecrow.webp", "weekend": "assets/img/weekend.webp", "book": "assets/img/book.webp", "vacation": "assets/img/vacation.webp", "walk": "assets/img/walk.webp", "iced": "assets/img/iced.webp", "night": "assets/img/night.webp", "report": "assets/img/report.webp", "tractor": "assets/img/tractor.webp", "weather": "assets/img/weather.webp", "kimchi": "assets/img/kimchi.webp", "king": "assets/img/king.webp", "dolsoe": "assets/img/dolsoe.webp", "seonbi": "assets/img/seonbi.webp", "doryeong": "assets/img/doryeong.webp", "assi": "assets/img/assi.webp", "liberty": "assets/img/liberty.webp", "army": "assets/img/army.webp", "pilot": "assets/img/pilot.webp", "kya": "assets/img/kya.webp", "newyear": "assets/img/newyear.webp", "watermelon": "assets/img/watermelon.webp", "halloween": "assets/img/halloween.webp", "dracula": "assets/img/dracula.webp", "xmas": "assets/img/xmas.webp", "golden": "assets/img/golden.webp", "sprout": "assets/img/sprout.webp", "s_pot": "assets/img/s_pot.webp", "s_tea": "assets/img/s_tea.webp", "s_box": "assets/img/s_box.webp", "s_rice": "assets/img/s_rice.webp", "s_sock": "assets/img/s_sock.webp", "s_rainbow": "assets/img/s_rainbow.webp", "s_songpyeon": "assets/img/s_songpyeon.webp", "s_maple": "assets/img/s_maple.webp", "s_angry": "assets/img/s_angry.webp", "s_heart": "assets/img/s_heart.webp", "s_sleepy": "assets/img/s_sleepy.webp", "s_balloon": "assets/img/s_balloon.webp", "bubble": "assets/img/bubble.webp", "s_headphone": "assets/img/s_headphone.webp", "gsprout": "assets/img/gsprout.webp"};
 const DEX = {
-  days: 39, streak: 6, goldEgg: { done: 1, need: 3 }, scraps: 23, teamShares: 4,
+  days: 0, streak: 0, last: "", reads: 0, shares: 0, goldEgg: null,
   totals: { isak: 40, sprout: 40, legend: 20 },
   items: [
-    { id: "i-wave", no: 1, kind: "isak", img: "wave", name: "굿모닝", got: "9월 22일", line: "아침마다 먼저 인사하는 출근 요정." },
-    { id: "i-run", no: 2, kind: "isak", img: "run", name: "러너 이삭이", got: "10월 1일", line: "새 소식이 뜨면 제일 먼저 달려가요." },
-    { id: "s-1", no: 1, kind: "sprout", img: "sprout", name: "새싹이", got: "10월 8일", line: "이삭이를 따라다니는 아기 새싹. 오늘도 쑥쑥 자라는 중." },
-    { id: "i-sleepy", no: 3, kind: "isak", img: "sleepy", name: "월요병", got: "10월 14일", line: "월요일 아침엔 기사도 눈에 잘 안 들어와요." },
-    { id: "i-rake", no: 4, kind: "isak", img: "rake", name: "밭가는 이삭이", got: "10월 20일", line: "오늘도 기사 밭을 부지런히 갈아요." },
-    { id: "s-2", no: 2, kind: "sprout", img: "s_pot", name: "화분", got: "11월 1일", line: "화분 속 포근한 흙이 제일 좋아요. 물만 주면 쑥쑥!" },
-    { id: "i-think", no: 5, kind: "isak", img: "think", name: "고민 중", got: "10월 29일", line: "어떤 기사부터 읽을지 고민하는 중." },
+    { id: "i-wave", no: 1, kind: "isak", img: "wave", name: "굿모닝", line: "아침마다 먼저 인사하는 출근 요정." },
+    { id: "i-run", no: 2, kind: "isak", img: "run", name: "러너 이삭이", line: "새 소식이 뜨면 제일 먼저 달려가요." },
+    { id: "s-1", no: 1, kind: "sprout", img: "sprout", name: "새싹이", line: "이삭이를 따라다니는 아기 새싹. 오늘도 쑥쑥 자라는 중." },
+    { id: "i-sleepy", no: 3, kind: "isak", img: "sleepy", name: "월요병", line: "월요일 아침엔 기사도 눈에 잘 안 들어와요." },
+    { id: "i-rake", no: 4, kind: "isak", img: "rake", name: "밭가는 이삭이", line: "오늘도 기사 밭을 부지런히 갈아요." },
+    { id: "s-2", no: 2, kind: "sprout", img: "s_pot", name: "화분", line: "화분 속 포근한 흙이 제일 좋아요. 물만 주면 쑥쑥!" },
+    { id: "i-think", no: 5, kind: "isak", img: "think", name: "고민 중", line: "어떤 기사부터 읽을지 고민하는 중." },
     { id: "i-crossed", no: 6, kind: "isak", img: "crossed", name: "점심 고민", line: "오늘 점심은 뭐 먹지… 팔짱 끼고 고민 중." },
     { id: "i-skate", no: 7, kind: "isak", img: "skate", name: "퇴근길" },
     { id: "i-mag", no: 8, kind: "isak", img: "magnifier", name: "오탈자 검사" },
     { id: "i-mega", no: 9, kind: "isak", img: "megaphone", name: "공지 좀 읽어라" },
     { id: "i-basket", no: 10, kind: "isak", img: "basket", name: "풍년" },
-    { id: "i-center", no: 11, kind: "isak", img: "center", name: "센터", got: "10월 31일", line: "선글라스 끼고 무대 한가운데, 오늘의 주인공." },
-    { id: "i-kkeok", no: 12, kind: "isak", img: "kkeok", name: "꺾기 장인", got: "10월 31일", line: "반짝이 정장에 마이크 하나면 어디든 무대." },
-    { id: "i-band", no: 13, kind: "isak", img: "band", name: "밴드부", got: "10월 31일", line: "점심시간엔 베이스 둥둥, 오늘도 합주 중." },
-    { id: "i-drib", no: 14, kind: "isak", img: "drib", name: "드리블러", got: "10월 31일", line: "기사 사이를 요리조리, 공은 절대 안 뺏겨요." },
-    { id: "i-bat", no: 15, kind: "isak", img: "bat", name: "4번 타자", got: "10월 31일", line: "오늘의 헤드라인은 내가 친다, 한 방 있는 이삭이." },
-    { id: "i-kick", no: 16, kind: "isak", img: "kick", name: "킥플립", got: "10월 31일", line: "보드 위에서도 균형 잡고, 뉴스도 놓치지 않아요." },
-    { id: "i-hike", no: 17, kind: "isak", img: "hike", name: "정상 등반", got: "10월 31일", line: "주말엔 산으로! 정상에서 읽는 브리핑이 제일 맛있어요." },
-    { id: "i-lab", no: 18, kind: "isak", img: "lab", name: "관찰 일지", got: "10월 31일", line: "플라스크 속 변화를 하나도 놓치지 않고 기록해요." },
-    { id: "i-ai", no: 19, kind: "isak", img: "ai", name: "딥러닝", got: "10월 31일", line: "방석 깔고 앉아 AI랑 같이 농업의 미래를 공부해요." },
-    { id: "i-drone", no: 20, kind: "isak", img: "drone", name: "드론 파일럿", got: "10월 31일", line: "논밭 위를 한 바퀴, 하늘에서 보는 농사 소식." },
-    { id: "i-paper", no: 21, kind: "isak", img: "paper", name: "논문 마감", got: "10월 31일", line: "마감 전날 밤, 커피 한 잔과 서류 더미 사이에서." },
-    { id: "i-cow", no: 22, kind: "isak", img: "cow", name: "얼룩이", got: "10월 31일", line: "젖소 옷 입고 음메~ 축산 소식은 내가 먼저." },
-    { id: "i-hanwoo", no: 23, kind: "isak", img: "hanwoo", name: "투뿔", got: "10월 31일", line: "등급은 최상, 자신감도 최상인 한우 이삭이." },
-    { id: "i-apple", no: 24, kind: "isak", img: "apple", name: "사과", got: "10월 31일", line: "사과 모자 쓰고 바구니 가득, 오늘 수확도 풍성해요." },
-    { id: "i-pear", no: 25, kind: "isak", img: "pear", name: "배", got: "10월 31일", line: "달고 시원한 배 모자, 나주 배밭에서 막 왔어요." },
-    { id: "i-tangerine", no: 26, kind: "isak", img: "tangerine", name: "귤", got: "10월 31일", line: "장바구니 한가득 새콤달콤, 겨울엔 역시 귤이죠." },
-    { id: "i-scarecrow", no: 27, kind: "isak", img: "scarecrow", name: "허수아비", got: "10월 31일", line: "밀짚모자 쓰고 허수아비 친구 옆에서, 오늘도 논 지킴이." },
-    { id: "i-weekend", no: 28, kind: "isak", img: "weekend", name: "주말 모드", got: "10월 31일", line: "수건 터번에 버블티 한 잔, 오늘은 알림도 쉬어요." },
-    { id: "i-book", no: 29, kind: "isak", img: "book", name: "책벌레", got: "10월 31일", line: "동그란 안경 너머로 한 장 한 장, 오늘의 기사도 정독 중." },
-    { id: "i-vacation", no: 30, kind: "isak", img: "vacation", name: "연락금지", got: "10월 31일", line: "휴가 중엔 쉿! 캐리어 끌고 떠나는 중이에요." },
-    { id: "i-walk", no: 31, kind: "isak", img: "walk", name: "산책 메이트", got: "11월 1일", line: "강아지 친구랑 아침 산책, 오늘 소식은 걸으면서 들어요." },
-    { id: "i-iced", no: 32, kind: "isak", img: "iced", name: "아아 수혈", got: "11월 1일", line: "출근길 아이스 아메리카노 한 잔, 이제 하루 시작이에요." },
-    { id: "i-night", no: 33, kind: "isak", img: "night", name: "야근 모드", got: "11월 1일", line: "달 뜬 사무실, 모니터 불빛 아래 오늘도 마지막 퇴근." },
-    { id: "i-report", no: 34, kind: "isak", img: "report", name: "보고 준비", got: "11월 1일", line: "보고자료 꼭 끌어안고 결재 차례 기다리는 중… 떨려요." },
-    { id: "i-tractor", no: 35, kind: "isak", img: "tractor", name: "트랙터 드라이버", got: "11월 1일", line: "부릉부릉 출동! 오늘도 논두렁을 신나게 달려요." },
-    { id: "i-weather", no: 36, kind: "isak", img: "weather", name: "오늘의 날씨", got: "11월 1일", line: "우산 챙길까 말까? 날씨부터 알려 드릴게요." },
-    { id: "i-kimchi", no: 37, kind: "isak", img: "kimchi", name: "김장 담당", got: "11월 1일", line: "고무장갑 끼고 양념 쓱쓱, 올해 김장도 내가 책임져요." },
-    { id: "i-pilot", no: 38, kind: "isak", img: "pilot", name: "기장님", got: "11월 1일", line: "안전벨트 매세요, 오늘의 브리핑 곧 이륙합니다." },
-    { id: "s-3", no: 3, kind: "sprout", img: "s_tea", name: "찻잔 반신욕", got: "11월 1일", line: "따끈한 차에 퐁당, 오늘 하루 피로가 싹 풀려요." },
-    { id: "s-4", no: 4, kind: "sprout", img: "s_box", name: "택배 상자", got: "11월 1일", line: "짜잔! 오늘의 택배는 바로 나예요." },
-    { id: "s-5", no: 5, kind: "sprout", img: "s_rice", name: "밥공기", got: "11월 1일", line: "갓 지은 쌀밥 위가 제일 따뜻해요. 밥심으로 오늘도 힘내요!" },
-    { id: "s-6", no: 6, kind: "sprout", img: "s_sock", name: "크리스마스 양말", got: "11월 1일", line: "반짝반짝 전구 감고 양말 속에 쏙, 올해 선물은 나예요!" },
-    { id: "s-7", no: 7, kind: "sprout", img: "s_rainbow", name: "무지개", got: "11월 1일", line: "비 그친 뒤 무지개 아래, 오늘은 좋은 일만 생길 거예요." },
-    { id: "s-8", no: 8, kind: "sprout", img: "s_songpyeon", name: "송편", got: "11월 1일", line: "추석엔 송편 빚기! 양손에 하나씩, 제일 예쁜 건 내 거예요." },
-    { id: "s-9", no: 9, kind: "sprout", img: "s_maple", name: "단풍", got: "11월 1일", line: "가을이 오면 내 잎도 빨갛게 물들어요. 단풍 구경 같이 가요!" },
-    { id: "s-10", no: 10, kind: "sprout", img: "s_angry", name: "화났어", got: "11월 1일", line: "흥! 오늘 기사 안 읽으면 진짜 삐질 거예요." },
-    { id: "s-11", no: 11, kind: "sprout", img: "s_heart", name: "하트", got: "11월 1일", line: "오늘도 읽어 줘서 고마워요. 잎사귀까지 하트가 됐어요!" },
-    { id: "s-12", no: 12, kind: "sprout", img: "s_sleepy", name: "꾸벅꾸벅", got: "11월 1일", line: "점심 먹고 나면 눈꺼풀이 스르르… 5분만 잘게요." },
-    { id: "s-13", no: 13, kind: "sprout", img: "s_balloon", name: "풍선 둥실", got: "11월 1일", line: "풍선 세 개면 하늘까지 둥실! 기분도 같이 날아올라요." },
-    { id: "s-14", no: 14, kind: "sprout", img: "s_headphone", name: "헤드폰", got: "11월 1일", line: "좋아하는 노래 틀고 둠칫둠칫, 출근길이 신나요." },
+    { id: "i-center", no: 11, kind: "isak", img: "center", name: "센터", line: "선글라스 끼고 무대 한가운데, 오늘의 주인공." },
+    { id: "i-kkeok", no: 12, kind: "isak", img: "kkeok", name: "꺾기 장인", line: "반짝이 정장에 마이크 하나면 어디든 무대." },
+    { id: "i-band", no: 13, kind: "isak", img: "band", name: "밴드부", line: "점심시간엔 베이스 둥둥, 오늘도 합주 중." },
+    { id: "i-drib", no: 14, kind: "isak", img: "drib", name: "드리블러", line: "기사 사이를 요리조리, 공은 절대 안 뺏겨요." },
+    { id: "i-bat", no: 15, kind: "isak", img: "bat", name: "4번 타자", line: "오늘의 헤드라인은 내가 친다, 한 방 있는 이삭이." },
+    { id: "i-kick", no: 16, kind: "isak", img: "kick", name: "킥플립", line: "보드 위에서도 균형 잡고, 뉴스도 놓치지 않아요." },
+    { id: "i-hike", no: 17, kind: "isak", img: "hike", name: "정상 등반", line: "주말엔 산으로! 정상에서 읽는 브리핑이 제일 맛있어요." },
+    { id: "i-lab", no: 18, kind: "isak", img: "lab", name: "관찰 일지", line: "플라스크 속 변화를 하나도 놓치지 않고 기록해요." },
+    { id: "i-ai", no: 19, kind: "isak", img: "ai", name: "딥러닝", line: "방석 깔고 앉아 AI랑 같이 농업의 미래를 공부해요." },
+    { id: "i-drone", no: 20, kind: "isak", img: "drone", name: "드론 파일럿", line: "논밭 위를 한 바퀴, 하늘에서 보는 농사 소식." },
+    { id: "i-paper", no: 21, kind: "isak", img: "paper", name: "논문 마감", line: "마감 전날 밤, 커피 한 잔과 서류 더미 사이에서." },
+    { id: "i-cow", no: 22, kind: "isak", img: "cow", name: "얼룩이", line: "젖소 옷 입고 음메~ 축산 소식은 내가 먼저." },
+    { id: "i-hanwoo", no: 23, kind: "isak", img: "hanwoo", name: "투뿔", line: "등급은 최상, 자신감도 최상인 한우 이삭이." },
+    { id: "i-apple", no: 24, kind: "isak", img: "apple", name: "사과", line: "사과 모자 쓰고 바구니 가득, 오늘 수확도 풍성해요." },
+    { id: "i-pear", no: 25, kind: "isak", img: "pear", name: "배", line: "달고 시원한 배 모자, 나주 배밭에서 막 왔어요." },
+    { id: "i-tangerine", no: 26, kind: "isak", img: "tangerine", name: "귤", line: "장바구니 한가득 새콤달콤, 겨울엔 역시 귤이죠." },
+    { id: "i-scarecrow", no: 27, kind: "isak", img: "scarecrow", name: "허수아비", line: "밀짚모자 쓰고 허수아비 친구 옆에서, 오늘도 논 지킴이." },
+    { id: "i-weekend", no: 28, kind: "isak", img: "weekend", name: "주말 모드", line: "수건 터번에 버블티 한 잔, 오늘은 알림도 쉬어요." },
+    { id: "i-book", no: 29, kind: "isak", img: "book", name: "책벌레", line: "동그란 안경 너머로 한 장 한 장, 오늘의 기사도 정독 중." },
+    { id: "i-vacation", no: 30, kind: "isak", img: "vacation", name: "연락금지", line: "휴가 중엔 쉿! 캐리어 끌고 떠나는 중이에요." },
+    { id: "i-walk", no: 31, kind: "isak", img: "walk", name: "산책 메이트", line: "강아지 친구랑 아침 산책, 오늘 소식은 걸으면서 들어요." },
+    { id: "i-iced", no: 32, kind: "isak", img: "iced", name: "아아 수혈", line: "출근길 아이스 아메리카노 한 잔, 이제 하루 시작이에요." },
+    { id: "i-night", no: 33, kind: "isak", img: "night", name: "야근 모드", line: "달 뜬 사무실, 모니터 불빛 아래 오늘도 마지막 퇴근." },
+    { id: "i-report", no: 34, kind: "isak", img: "report", name: "보고 준비", line: "보고자료 꼭 끌어안고 결재 차례 기다리는 중… 떨려요." },
+    { id: "i-tractor", no: 35, kind: "isak", img: "tractor", name: "트랙터 드라이버", line: "부릉부릉 출동! 오늘도 논두렁을 신나게 달려요." },
+    { id: "i-weather", no: 36, kind: "isak", img: "weather", name: "오늘의 날씨", line: "우산 챙길까 말까? 날씨부터 알려 드릴게요." },
+    { id: "i-kimchi", no: 37, kind: "isak", img: "kimchi", name: "김장 담당", line: "고무장갑 끼고 양념 쓱쓱, 올해 김장도 내가 책임져요." },
+    { id: "i-pilot", no: 38, kind: "isak", img: "pilot", name: "기장님", line: "안전벨트 매세요, 오늘의 브리핑 곧 이륙합니다." },
+    { id: "s-3", no: 3, kind: "sprout", img: "s_tea", name: "찻잔 반신욕", line: "따끈한 차에 퐁당, 오늘 하루 피로가 싹 풀려요." },
+    { id: "s-4", no: 4, kind: "sprout", img: "s_box", name: "택배 상자", line: "짜잔! 오늘의 택배는 바로 나예요." },
+    { id: "s-5", no: 5, kind: "sprout", img: "s_rice", name: "밥공기", line: "갓 지은 쌀밥 위가 제일 따뜻해요. 밥심으로 오늘도 힘내요!" },
+    { id: "s-6", no: 6, kind: "sprout", img: "s_sock", name: "크리스마스 양말", line: "반짝반짝 전구 감고 양말 속에 쏙, 올해 선물은 나예요!" },
+    { id: "s-7", no: 7, kind: "sprout", img: "s_rainbow", name: "무지개", line: "비 그친 뒤 무지개 아래, 오늘은 좋은 일만 생길 거예요." },
+    { id: "s-8", no: 8, kind: "sprout", img: "s_songpyeon", name: "송편", line: "추석엔 송편 빚기! 양손에 하나씩, 제일 예쁜 건 내 거예요." },
+    { id: "s-9", no: 9, kind: "sprout", img: "s_maple", name: "단풍", line: "가을이 오면 내 잎도 빨갛게 물들어요. 단풍 구경 같이 가요!" },
+    { id: "s-10", no: 10, kind: "sprout", img: "s_angry", name: "화났어", line: "흥! 오늘 기사 안 읽으면 진짜 삐질 거예요." },
+    { id: "s-11", no: 11, kind: "sprout", img: "s_heart", name: "하트", line: "오늘도 읽어 줘서 고마워요. 잎사귀까지 하트가 됐어요!" },
+    { id: "s-12", no: 12, kind: "sprout", img: "s_sleepy", name: "꾸벅꾸벅", line: "점심 먹고 나면 눈꺼풀이 스르르… 5분만 잘게요." },
+    { id: "s-13", no: 13, kind: "sprout", img: "s_balloon", name: "풍선 둥실", line: "풍선 세 개면 하늘까지 둥실! 기분도 같이 날아올라요." },
+    { id: "s-14", no: 14, kind: "sprout", img: "s_headphone", name: "헤드폰", line: "좋아하는 노래 틀고 둠칫둠칫, 출근길이 신나요." },
     { id: "s-15", no: 15, kind: "sprout", name: "새싹이" },
     { id: "s-16", no: 16, kind: "sprout", name: "새싹이" },
     { id: "s-17", no: 17, kind: "sprout", name: "새싹이" },
-    { id: "l-cheer", no: 1, kind: "legend", img: "cheer", name: "응원단장", cond: "연속 출석 30일", now: 6, goal: 30 },
-    { id: "l-king", no: 2, kind: "legend", img: "king", name: "전하", cond: "출석 365일", now: 39, goal: 365 },
-    { id: "l-kya", no: 3, kind: "legend", img: "kya", name: "캬~", cond: "금요일 저녁 출석 10번", now: 2, goal: 10 },
+    { id: "l-cheer", no: 1, kind: "legend", img: "cheer", name: "응원단장", cond: "연속 출석 30일", now: 0, goal: 30 },
+    { id: "l-king", no: 2, kind: "legend", img: "king", name: "전하", cond: "출석 365일", now: 0, goal: 365 },
+    { id: "l-kya", no: 3, kind: "legend", img: "kya", name: "캬~", cond: "금요일 저녁 출석 10번", now: 0, goal: 10 },
     { id: "l-newyear", no: 4, kind: "legend", img: "newyear", name: "새해 복", cond: "설 연휴에 가끔 나타나요 · 랜덤" },
-    { id: "l-sprout", no: 5, kind: "legend", img: "gsprout", name: "황금 새싹", cond: "새싹이 40종 모두 모으기", now: 14, goal: 40 },
-    { id: "l-dolsoe", no: 7, kind: "legend", img: "dolsoe", name: "돌쇠", cond: "기사 1,000개 읽기", now: 412, goal: 1000 },
-    { id: "l-seonbi", no: 8, kind: "legend", img: "seonbi", name: "선비 이삭", cond: "스크랩 100개 모으기", now: 23, goal: 100 },
-    { id: "l-doryeong", no: 9, kind: "legend", img: "doryeong", name: "도령", cond: "7일 연속 아침 8시 전에 출석", now: 2, goal: 7 },
-    { id: "l-assi", no: 10, kind: "legend", img: "assi", name: "아씨", cond: "팀원과 기사 50번 공유하기", now: 4, goal: 50 },
-    { id: "l-liberty", no: 11, kind: "legend", img: "liberty", name: "자유의 이삭", cond: "하루에 모든 분야 기사 읽기", now: 5, goal: 8 },
-    { id: "l-army", no: 12, kind: "legend", img: "army", name: "충성!", cond: "출석 100일 (100일 휴가)", now: 39, goal: 100 },
+    { id: "l-sprout", no: 5, kind: "legend", img: "gsprout", name: "황금 새싹", cond: "새싹이 40종 모두 모으기", now: 0, goal: 40 },
+    { id: "l-dolsoe", no: 7, kind: "legend", img: "dolsoe", name: "돌쇠", cond: "기사 1,000개 읽기", now: 0, goal: 1000 },
+    { id: "l-seonbi", no: 8, kind: "legend", img: "seonbi", name: "선비 이삭", cond: "스크랩 100개 모으기", now: 0, goal: 100 },
+    { id: "l-doryeong", no: 9, kind: "legend", img: "doryeong", name: "도령", cond: "7일 연속 아침 8시 전에 출석", now: 0, goal: 7 },
+    { id: "l-assi", no: 10, kind: "legend", img: "assi", name: "아씨", cond: "팀원과 기사 50번 공유하기", now: 0, goal: 50 },
+    { id: "l-liberty", no: 11, kind: "legend", img: "liberty", name: "자유의 이삭", cond: "하루에 모든 분야 기사 읽기", now: 0, goal: 8 },
+    { id: "l-army", no: 12, kind: "legend", img: "army", name: "충성!", cond: "출석 100일 (100일 휴가)", now: 0, goal: 100 },
     { id: "l-watermelon", no: 13, kind: "legend", img: "watermelon", name: "수박 한 통", cond: "여름(7~8월)에 가끔 나타나요 · 랜덤" },
     { id: "l-halloween", no: 14, kind: "legend", img: "halloween", name: "잭오랜턴", cond: "할로윈 주간에 가끔 나타나요 · 랜덤" },
     { id: "l-dracula", no: 15, kind: "legend", img: "dracula", name: "드라큘라", cond: "할로윈 주간에 가끔 나타나요 · 랜덤" },
     { id: "l-xmas", no: 16, kind: "legend", img: "xmas", name: "트리 장식", cond: "12월에 가끔 나타나요 · 랜덤" },
-    { id: "l-golden", no: 17, kind: "legend", img: "golden", name: "황금 이삭", cond: "일반 이삭이 40종 모두 모으기", now: 38, goal: 40 },
+    { id: "l-golden", no: 17, kind: "legend", img: "golden", name: "황금 이삭", cond: "일반 이삭이 40종 모두 모으기", now: 0, goal: 40 },
     { id: "l-hidden", no: 6, kind: "legend", img: "bubble", name: "비눗방울", cond: "아주 가끔 나타나요 · 가장 희귀한 랜덤", hidden: true },
   ],
 };
 let dexTab = "all";
+/* 도감 진행: 이 브라우저에 저장 (3단계에서 Supabase로) */
+const DEX_KEY = "daily-briefing-dex";
+const LEGEND_NOW = {
+  "l-cheer": () => DEX.streak, "l-king": () => DEX.days, "l-army": () => DEX.days, "l-dolsoe": () => DEX.reads,
+  "l-seonbi": () => S.scrap.size, "l-assi": () => DEX.shares,
+  "l-sprout": () => DEX.items.filter((x) => x.kind === "sprout" && x.got).length, "l-golden": () => DEX.items.filter((x) => x.kind === "isak" && x.got).length,
+};
+function dexProgress() { DEX.items.forEach((x) => { if (x.goal && LEGEND_NOW[x.id]) x.now = Math.min(x.goal, LEGEND_NOW[x.id]()); }); }
+function loadDex() {
+  try {
+    const d = JSON.parse(localStorage.getItem(DEX_KEY) || "{}");
+    ["days", "streak", "last", "reads", "shares", "goldEgg"].forEach((k) => { if (d[k] != null) DEX[k] = d[k]; });
+    Object.entries(d.got || {}).forEach(([id, when]) => { const x = DEX.items.find((i) => i.id === id); if (x) x.got = when; });
+  } catch (e) {}
+  dexProgress();
+}
+function saveDex() {
+  dexProgress();
+  try { localStorage.setItem(DEX_KEY, JSON.stringify({ days: DEX.days, streak: DEX.streak, last: DEX.last, reads: DEX.reads, shares: DEX.shares, goldEgg: DEX.goldEgg,
+    got: Object.fromEntries(DEX.items.filter((x) => x.got).map((x) => [x.id, x.got])) })); } catch (e) {}
+}
 const owned = (x) => !!x.got;
 function dexCount(kind) { return DEX.items.filter((x) => x.kind === kind && owned(x)).length; }
 const KIND = { isak: "이삭이", sprout: "새싹이", legend: "전설" };
@@ -466,7 +487,7 @@ function dexSheet(id) {
 }
 
 /* ── 팀 스크랩함: 만들기 · 초대 · 참여 ── */
-S.teams = [{ id: "t1", name: "연구제도팀", code: "TEAM-7KQ2-M8XD", members: ["경석", "민지", "지훈", "수아"], items: S.team }];
+S.teams = [];
 const CODE_CH = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const rnd4 = () => Array.from({ length: 4 }, () => CODE_CH[Math.floor(Math.random() * CODE_CH.length)]).join("");
 const teamOf = (id) => S.teams.find((t) => t.id === id);
@@ -499,7 +520,7 @@ function teamSheet(kind, arg) {
 function bindTeams(app, rerender, onTeam) {
   app.addEventListener("click", (e) => {
     const t = e.target.closest("button"); if (!t || !app.contains(t)) return;
-    if (t.dataset.teamstart !== undefined) { S.sheet = { kind: "teamStart" }; renderSheet(app); return; }
+    if (t.dataset.teamstart !== undefined) { toast(app, "팀 스크랩함은 곧 열려요 · 서버 연결 뒤 바로 쓸 수 있어요"); return; }
     if (t.dataset.teamnew !== undefined) { S.draftTeam = ""; S.sheet = { kind: "teamNew" }; renderSheet(app); $("#f-team", app).focus(); return; }
     if (t.dataset.teamjoin !== undefined) { S.draftCode = ""; S.sheet = { kind: "teamJoin" }; renderSheet(app); $("#f-code", app).focus(); return; }
     if (t.dataset.invite) { S.justMade = null; S.sheet = { kind: "invite", arg: t.dataset.invite }; renderSheet(app); return; }
@@ -529,7 +550,7 @@ function teamBodyHTML(t, wideCls = "wide") {
 }
 
 /* ── PC·휴대폰 동기화 안내 ── */
-S.sync = { code: "DB-7KQ2-M8XD", devices: [["이 휴대폰", "지금 사용 중"], ["PC · 크롬", "어제 오후 5:12"]] };
+S.sync = { code: "준비 중", devices: [["이 기기", "지금 사용 중"]] };
 function syncSheet(kind) {
   const head = (h) => `<div class="grab"></div><div class="sh-head"><h2>${h}</h2><button type="button" class="x" data-close>닫기</button></div>`;
   if (kind === "syncHelp") return head("동기화는 이렇게 해요") + `<p class="tm-p">로그인 대신 <b>내 코드</b> 하나로 PC와 휴대폰을 묶어요. 스크랩함, 내 분야, 출석·도감이 같아져요.</p>
@@ -565,13 +586,14 @@ function bindSync(app) {
 const CREDIT = `<div class="credit">연구정책국 연구정책과<span>Kyeong-seok Kwon</span></div>`;
 
 /* ── 통계: 매일 오전 기사 수를 저장해 쌓는 방식. 쌓인 날만큼만 보여 준다 ── */
-S.statPeriod = 7; S.statsDays = 16;
+S.statPeriod = 7; S.statsDays = 1; // 매일 기록은 5단계에서. 지금은 오늘 하루치만
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const md = (d) => `${d.getMonth() + 1}월 ${d.getDate()}일`;
 const mdS = (d) => `${d.getMonth() + 1}.${d.getDate()}`;
 function seeded(n) { const x = Math.sin(n * 9301 + 49297) * 233280; return x - Math.floor(x); }
 const BASE = { agri: 8, sci: 5, it: 6, pol: 3, spo: 2 };
 function dayCounts(dayIdx) { // dayIdx: 0 = 오늘, 1 = 어제 …
+  if (dayIdx === 0 && S.live) return Object.fromEntries(S.cats.map((c) => [c.id, c.count]));
   const d = addDays(TODAY, -dayIdx), wk = d.getDay() === 0 || d.getDay() === 6 ? 0.45 : 1;
   const o = {}; S.cats.forEach((c, i) => { const b = BASE[c.id] ?? 2; o[c.id] = Math.max(0, Math.round(b * wk * (0.55 + seeded(dayIdx * 7 + i) * 0.95) + (c.id === "agri" && dayIdx === 3 ? 9 : 0))); }); return o;
 }
@@ -617,8 +639,10 @@ function statsHTML(wide) {
        <div class="st-prog">${per.map(([p, nm]) => { const h = Math.min(S.statsDays, p), done = h >= p; return `<div><span>${nm}</span><i><em style="width:${h / p * 100}%"></em></i><small>${done ? "완성" : `${h}/${p}일 · ${md(addDays(start, p - 1))} 완성`}</small></div>`; }).join("")}</div></section>`;
   const chg = D.prev ? Math.round((D.total - D.prev) / D.prev * 100) : null;
   const partialNote = D.have < D.P ? `<div class="st-warn">이 기간은 아직 ${D.have}일치만 모였어요 (${D.P}일 중). 합계와 평균은 모인 날만 계산해요.</div>` : "";
-  const media = [["○○일보", 41], ["△△신문", 33], ["농민신문", 29], ["□□경제", 22], ["◇◇뉴스", 18]].map(([m, n]) => [m, Math.round(n * D.have / 16)]);
-  const issues = [["노지 스마트농업 시범지구 운영 결과", 12, "agri"], ["기후변화 사과 재배지 북상", 7, "agri"], ["그린바이오 R&D 예산안", 6, "sci"]];
+  // 매체·이슈 순위는 지금 받은 기사 기준 (날짜별 기록은 5단계에서)
+  const mc = {}; S.arts.forEach((a) => { [a.src, ...(a.rel || []).map((r) => r[0])].forEach((m) => { mc[m] = (mc[m] || 0) + 1; }); });
+  const media = Object.entries(mc).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const issues = S.arts.filter((a) => a.media > 1).sort((a, b) => b.media - a.media).slice(0, 3).map((a) => [a.title, a.media, a.cat]);
   return `<div class="st${wide ? " st-wide" : ""}">
     <div class="st-per" role="tablist">${per.map(([p, nm]) => `<button type="button" role="tab" data-period="${p}" aria-selected="${S.statPeriod === p}">${nm}</button>`).join("")}</div>
     ${collect}${partialNote}
@@ -632,8 +656,8 @@ function statsHTML(wide) {
     <div class="st-cols">
     <section class="st-card"><h3>분야별 합계</h3>${D.byCat.map(({ k, n }) => `<div class="st-bar"><span>${esc(k.name)}</span><i><em style="width:${D.byCat[0].n ? n / D.byCat[0].n * 100 : 0}%;background:${pal(k).c}"></em></i><b>${n}</b></div>`).join("")}
       ${S.cats.some((k) => k.user) ? `<div class="st-note small">새로 추가한 분야는 추가한 날부터 집계돼요.</div>` : ""}</section>
-    <section class="st-card"><h3>많이 다룬 매체 <small>상위 5</small></h3>${media.map(([m, n], i) => `<div class="st-rank"><em>${i + 1}</em><span>${m}</span><b>${n}건</b></div>`).join("")}</section>
-    <section class="st-card"><h3>많이 보도된 이슈 <small>여러 매체가 함께 다룬 소식</small></h3>${issues.map(([t, n, c], i) => `<div class="st-rank"><em>${i + 1}</em><span>${esc(t)}</span><b>${n}개 매체</b></div>`).join("")}</section>
+    <section class="st-card"><h3>많이 다룬 매체 <small>상위 5</small></h3>${media.length ? media.map(([m, n], i) => `<div class="st-rank"><em>${i + 1}</em><span>${esc(m)}</span><b>${n}건</b></div>`).join("") : `<div class="st-note small">기사를 불러오면 보여요</div>`}</section>
+    <section class="st-card"><h3>많이 보도된 이슈 <small>여러 매체가 함께 다룬 소식</small></h3>${issues.length ? issues.map(([t, n, c], i) => `<div class="st-rank"><em>${i + 1}</em><span>${esc(t)}</span><b>${n}개 매체</b></div>`).join("") : `<div class="st-note small">여러 매체가 함께 다룬 소식이 아직 없어요</div>`}</section>
     </div>
     <div class="st-note small">기사 수는 내 분야 검색어로 찾은 기사 기준이에요. 같은 소식을 여러 매체가 쓰면 각각 셉니다.</div>
   </div>`;

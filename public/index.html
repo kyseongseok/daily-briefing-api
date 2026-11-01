@@ -181,7 +181,7 @@ function scrapView() {
 function dexView() {
   return header("도감", `<span style="font-size:calc(12px * var(--s));color:var(--faint);padding-right:10px">출석 ${DEX.days}일 · 연속 ${DEX.streak}일</span>`) + `<div class="scroll">
     ${dexNextHTML()}${dexTabsHTML()}${dexGridHTML()}
-    <div style="font-size:calc(12px * var(--s));color:var(--faint);line-height:1.6;text-align:center;padding:4px 8px 0">이삭이 40 · 새싹이 40 · 전설 20, 모두 100마리<br>새싹이 그림은 받는 대로 채울게요</div></div>`;
+    <div style="font-size:calc(12px * var(--s));color:var(--faint);line-height:1.6;text-align:center;padding:4px 8px 0">이삭이 40 · 새싹이 40 · 전설 20, 모두 100마리</div></div>`;
 }
 function thumb(m) {
   if (m === "basic") return `<span class="pv" style="background:#F3F6FB"><span style="font-size:7px;font-weight:850;color:#0E1A36">DAILY <span style="color:#2457E6">BRIEFING</span></span><span style="background:#fff;border:1px solid #C9D8F8;border-radius:5px;padding:5px;display:flex;flex-direction:column;gap:3px"><span class="ln" style="width:40%;background:#0E1A36"></span><span class="ln" style="background:#CBD5E4"></span></span><span style="background:#fff;border-radius:5px;padding:4px 5px;display:flex;flex-direction:column;gap:4px;box-shadow:inset 2px 0 0 #1E8A4C"><span class="ln" style="background:#CBD5E4"></span><span class="ln" style="width:60%;background:#CBD5E4"></span></span><span style="background:#fff;border-radius:5px;padding:4px 5px;box-shadow:inset 2px 0 0 #5B47D6"><span class="ln" style="background:#CBD5E4"></span></span></span>`;
@@ -197,7 +197,7 @@ function settingsView() {
       <div class="steps">${SIZES.map(([v, nm], i) => `<button type="button" data-size="${v}" aria-pressed="${S.size === v}" aria-label="${nm}" style="font-size:${13 + i * 3}px">가</button>`).join("")}</div></section>
     <section class="box" style="gap:2px"><h3 style="padding-bottom:6px">내 분야<span class="r"><button type="button" class="lnk" data-addopen>+ 추가</button></span></h3>
       ${S.cats.map((c) => `<button type="button" class="mycat" data-edit="${c.id}" style="${cvars(c)}"><i></i>${esc(c.name)}<span>검색어 ${(c.words || []).length}개</span><em>수정 ›</em></button>`).join("")}</section>
-    <section class="box" style="flex-direction:row;align-items:center"><div style="flex:1"><h3>PC·휴대폰 동기화 <button type="button" class="qhelp" data-synchelp aria-label="동기화 사용 방법">?</button></h3><div style="font-size:12px;color:var(--faint);margin-top:4px">내 코드 DB-7KQ2-···· · 기기 2대 연결됨</div></div><button type="button" class="lnk" data-sync>관리 ›</button></section>
+    <section class="box" style="flex-direction:row;align-items:center"><div style="flex:1"><h3>PC·휴대폰 동기화 <button type="button" class="qhelp" data-synchelp aria-label="동기화 사용 방법">?</button></h3><div style="font-size:12px;color:var(--faint);margin-top:4px">곧 열려요 · 지금은 이 기기에만 저장돼요</div></div><button type="button" class="lnk" data-sync>관리 ›</button></section>
     ${CREDIT}</div>`;
 }
 function render() {
@@ -211,7 +211,7 @@ function render() {
 }
 function go(t) { const changed = t !== tab; tab = t; if (changed) FX.enter = "#screen .scroll"; const sc = $("#screen .scroll"); if (sc) sc.scrollTop = 0; render(); const s2 = $("#screen .scroll"); if (s2) s2.scrollTop = 0; }
 
-loadPrefs();
+loadPrefs(); loadDex();
 bindCommon(app, render);
 bindSync(app);
 bindStats(app, render);

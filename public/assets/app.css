@@ -527,3 +527,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .kw-add { flex: none; height: 32px; padding: 0 12px; border-radius: 999px; border: none; background: #2457E6; color: #fff; font-size: calc(13px * var(--s)); font-weight: 700; }
 .app[data-mode="jogan"] .kw-add { border-radius: 0; background: var(--ink); }
 .kw-max { font-size: calc(12.5px * var(--s)); color: var(--faint); }
+
+/* 기사 목록: 스크랩·공유 버튼 */
+.it .ibs { display: flex; flex-direction: column; align-items: center; gap: 0; flex: none; margin-right: -6px; }
+.it .ibs .ib { height: 34px; }
+.copybox pre { white-space: pre-wrap; word-break: break-all; }

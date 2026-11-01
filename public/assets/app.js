@@ -174,7 +174,7 @@ function itemHTML(a, opts = {}) {
   const meta = r ? `읽음 · ${esc(a.src)}` : `${opts.chip === false ? "" : chipCat(c)}${esc(a.src)} · ${esc(a.time)}${a.media ? ` · ${a.media}개 매체` : ""}`;
   return `<article class="it${r ? " read" : ""}${a.fresh ? " fresh" : ""}" data-aid="${a.id}" style="${cvars(c)}">${opts.n ? `<div class="n">${opts.n}</div>` : ""}
     <div class="b"><button type="button" class="t" data-open="${a.id}">${esc(a.title)}</button><div class="m">${meta}</div></div>
-    <button type="button" class="ib" data-scrap="${a.id}" aria-pressed="${S.scrap.has(a.id)}" aria-label="스크랩">${ICON.star}</button></article>`;
+    <div class="ibs"><button type="button" class="ib" data-scrap="${a.id}" aria-pressed="${S.scrap.has(a.id)}" aria-label="스크랩">${ICON.star}</button><button type="button" class="ib" data-share="${a.id}" aria-label="공유">${ICON.share}</button></div></article>`;
 }
 const relCount = (a) => a.relCount != null ? a.relCount : (a.rel || []).length;
 function topHTML(withRel = true) {
@@ -200,17 +200,23 @@ function attHTML() {
 }
 
 /* 시트 */
+const findArt = (id) => S.arts.find((x) => x.id === id) || S.saved[id];
+function shareText(a) {
+  const d = a.t ? new Date(a.t) : new Date();
+  return `□ ${a.title}\n - ${a.src}, ${d.getMonth() + 1}.${d.getDate()}.${a.media > 1 ? ` (${a.media}개 매체 보도)` : ""}${a.link ? `\n - ${a.link}` : ""}`;
+}
 function shareSheet(id) {
-  const a = S.arts.find((x) => x.id === id);
-  const text = `□ ${a.title}\n - ${a.src}, 10.30.${a.media ? ` (관련 보도 ${a.media}건)` : ""}\n - 링크: n.news.naver.com/…`;
+  const a = findArt(id); if (!a) return "";
+  const canShare = !!navigator.share;
   return `<div class="grab"></div><div class="sh-head"><h2>이 기사 공유</h2><button type="button" class="x" data-close>닫기</button></div>
     <div class="share-g">
-      <button type="button" data-copy="kakao"><span class="ic" style="background:#FEE500">${ICON.talk}</span>카카오톡</button>
-      <button type="button" data-copy="msg"><span class="ic" style="background:#E6F7EE;color:#11804A">${ICON.copy}</span>메신저용 복사</button>
-      <button type="button" data-copy="link"><span class="ic" style="background:#F1F3F7;color:#46546B">${ICON.link}</span>링크 복사</button>
-      <button type="button" data-copy="team"><span class="ic" style="background:#E8EFFF;color:#1D4ED8">${ICON.team}</span>팀에 담기</button>
+      <button type="button" data-copy="kakao" data-sid="${a.id}"><span class="ic" style="background:#FEE500">${ICON.talk}</span>${canShare ? "카카오톡·앱으로" : "카카오톡"}</button>
+      <button type="button" data-copy="msg" data-sid="${a.id}"><span class="ic" style="background:#E6F7EE;color:#11804A">${ICON.copy}</span>메신저용 복사</button>
+      <button type="button" data-copy="link" data-sid="${a.id}"><span class="ic" style="background:#F1F3F7;color:#46546B">${ICON.link}</span>링크 복사</button>
+      <button type="button" data-copy="team" data-sid="${a.id}"><span class="ic" style="background:#E8EFFF;color:#1D4ED8">${ICON.team}</span>팀에 담기</button>
     </div>
-    <div class="copybox"><b>메신저용 복사 — 네이버웍스 등 어디든 붙여넣기</b><pre id="copytext">${esc(text)}</pre></div>`;
+    <div class="copybox"><b>메신저용 복사 — 네이버웍스 등 어디든 붙여넣기</b><pre id="copytext">${esc(shareText(a))}</pre></div>
+    ${canShare ? "" : `<div class="st-note small" style="text-align:center">PC에서는 '메신저용 복사' 후 카카오톡 PC에 붙여넣어 주세요.</div>`}`;
 }
 const KW_MAX = 10; // 분야마다 검색어 최대 개수 (검색어 하나당 네이버 검색 1번)
 function pushWord(list, v, app) {
@@ -306,11 +312,18 @@ function bindCommon(app, rerender) {
     if (t.dataset.share) { openSheet(app, "share", t.dataset.share); return; }
     if (t.dataset.close !== undefined) { closeSheet(app); return; }
     if (t.dataset.copy) {
+      const a = findArt(t.dataset.sid), kind = t.dataset.copy; if (!a) return;
+      if (kind === "team") { toast(app, "팀 스크랩함은 곧 열려요"); return; }
+      const copy = (txt, msg) => { const ok = () => toast(app, msg); try { navigator.clipboard.writeText(txt).then(ok, () => toast(app, "복사하지 못했어요 · 글을 길게 눌러 복사해 주세요")); } catch (err) { toast(app, "복사하지 못했어요 · 글을 길게 눌러 복사해 주세요"); return; } };
       DEX.shares += 1; saveDex();
-      const text = $("#copytext", app).textContent;
-      const msg = { kakao: "카카오톡 공유 창이 열려요 (실제 앱)", msg: "복사했어요 · 메신저에 붙여넣으세요", link: "링크를 복사했어요", team: "팀 스크랩함은 곧 열려요" }[t.dataset.copy];
-      if (t.dataset.copy === "msg" || t.dataset.copy === "link") { try { navigator.clipboard.writeText(text).catch(() => {}); } catch (err) {} }
-      toast(app, msg); closeSheet(app); return;
+      // 카카오톡: 휴대폰 공유 창(카카오톡·문자·밴드 등)을 띄움. 공유 창이 없는 PC에서는 복사로 대신
+      if (kind === "kakao") {
+        if (navigator.share) { navigator.share({ title: a.title, text: shareText(a).replace(/\n - https?:\S+$/, ""), url: a.link || location.origin }).then(() => closeSheet(app)).catch(() => {}); return; }
+        copy(shareText(a), "복사했어요 · 카카오톡에 붙여넣으세요"); closeSheet(app); return;
+      }
+      if (kind === "msg") copy(shareText(a), "복사했어요 · 메신저에 붙여넣으세요");
+      if (kind === "link") copy(a.link || location.origin, "링크를 복사했어요");
+      closeSheet(app); return;
     }
     if (t.dataset.pick) { S.draft.p = +t.dataset.pick; renderSheet(app); return; }
     if (t.dataset.delkw) { S.draft.words.splice(+t.dataset.delkw, 1); renderSheet(app); $("#f-kw", app).focus(); return; }

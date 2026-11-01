@@ -138,7 +138,7 @@
 <script src="assets/app.js"></script>
 <script>
 const app = $("#app");
-let tab = "today", drawer = false, quick = false;
+let tab = "today", drawer = false, quick = false, pcScrap = "mine";
 function headerPC() {
   return `<header class="phd"><div class="wrap"><div class="phd-date">${dotDate()}</div><div class="brand">DAILY <b>BRIEFING</b></div>
     <nav class="pnav" aria-label="주 메뉴">${[["today", "오늘"], ["topics", "분야별"], ["stats", "통계"], ["scrap", "스크랩함"], ["dex", "도감"]].map(([k, nm]) => `<button type="button" data-tab="${k}" ${tab === k || (tab === "cat" && k === "topics") ? 'aria-current="page"' : ""}>${nm}</button>`).join("")}</nav>
@@ -162,7 +162,7 @@ function asideHTML() {
       <div style="display:flex;flex-direction:column;gap:6px"><small style="font-size:12px;color:var(--faint)">오늘 기사 ${S.cats.reduce((x, c) => x + c.count, 0)}건 · 분야별</small>
       <div class="mix" aria-hidden="true">${S.cats.filter((c) => c.count).map((c) => `<i style="flex:${c.count};${cvars(c)}" title="${esc(c.name)} ${c.count}건"></i>`).join("")}</div></div>
       <button type="button" class="dx-mini" data-tab="dex" style="border:none;background:var(--bg);border-radius:var(--r-s);padding:10px 12px;text-align:left;color:var(--ink)"><img src="${IMG.think}" alt=""><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:13px">다음 친구까지 출석 ${5 - (DEX.days % 5)}일</b><small style="font-size:12px;color:var(--faint)">도감 ${DEX.items.filter(owned).length} / 100 · 도감 보기 ›</small></span></button></section>
-    <section class="card"><h3>팀 스크랩함</h3><div style="font-size:13px;color:var(--sub);line-height:1.6">팀원과 기사를 함께 모으고, 주간 모음을 메신저로 보낼 수 있어요. 서버 연결 뒤 곧 열려요.</div></section>
+    <section class="card"><h3>팀 스크랩함</h3>${S.teams.length ? S.teams.map((x) => `<button type="button" class="dx-mini" data-pst="${x.id}" data-tab="scrap" style="border:none;background:var(--bg);border-radius:var(--r-s);padding:10px 12px;text-align:left;color:var(--ink);display:flex;justify-content:space-between"><b>${esc(x.name)}</b><span style="color:var(--faint);font-size:12px">${x.items.length}건</span></button>`).join("") : `<div style="font-size:13px;color:var(--sub);line-height:1.6">팀원과 기사를 함께 모으고, 이번 주 모음을 메신저로 보낼 수 있어요.</div><button type="button" class="act" style="justify-content:center" data-teamstart>팀 만들기 · 참여</button>`}</section>
     <section class="card" style="flex-direction:row;align-items:center"><div class="mini" aria-hidden="true"><i style="background:#F3F6FB;${S.mode === "basic" ? "border:2px solid #2457E6" : ""}"></i><i style="background:#F4F1EA;${S.mode === "jogan" ? "border:2px solid #2457E6" : ""}"></i><i style="background:#FBF8F1;${S.mode === "digest" ? "border:2px solid #2457E6" : ""}"></i></div>
       <div style="flex:1"><div style="font-size:13px;font-weight:700">디자인 바꾸기</div><div style="font-size:12px;color:var(--faint)">기본 · 조간 · 다이제스트</div></div><button type="button" class="act" data-drawer>열기</button></section>
   </aside>`;
@@ -183,14 +183,15 @@ function topicsPC() {
     <div class="grid3">${S.cats.map((c) => secHTML(c, 5, true)).join("")}${addSlotHTML()}</div></section></div>`;
 }
 function scrapPC() {
-  const mine = scrapList();
+  const mine = scrapList(), t = teamOf(pcScrap);
+  const pills = `<div class="pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button type="button" data-pst="mine" aria-pressed="${!t}">내 스크랩 ${mine.length}</button>${S.teams.map((x) => `<button type="button" data-pst="${x.id}" aria-pressed="${pcScrap === x.id}">${esc(x.name)} ${x.items.length}</button>`).join("")}</div>`;
+  const body = t ? `<div class="team-list">${teamBodyHTML(t)}</div>`
+    : mine.length ? `<div class="list">${mine.map((a) => itemHTML(a)).join("")}</div>` : `<div class="none">아직 스크랩한 기사가 없어요. 기사 옆 별표를 누르면 여기에 모여요.</div>`;
   return `<div class="wrap main"><section class="col">
-    <div class="h2row"><h2>내 스크랩 ${mine.length}</h2></div>
-    ${mine.length ? `<div class="list">${mine.map((a) => itemHTML(a)).join("")}</div>` : `<div class="none">아직 스크랩한 기사가 없어요. 기사 옆 별표를 누르면 여기에 모여요.</div>`}
+    <div class="h2row"><h2>스크랩함</h2></div>${pills}${body}
   </section><aside class="aside">
-    ${S.teams.map((t) => `<section class="card"><h3>${esc(t.name)}<span class="chip" style="background:#E8EFFF;color:#1D4ED8">팀원 ${t.members.length}명 · ${t.items.length}건</span></h3>
-      ${t.items.length ? t.items.map((x) => `<div class="titem"><a href="#" onclick="return false">${esc(x.title)}</a><small>${esc(x.who)} 님이 담음${x.note ? ` · "${esc(x.note)}"` : ""}</small></div>`).join("") : `<div class="none" style="padding:6px 0">아직 담은 기사가 없어요. 기사 공유 › 팀에 담기로 모아요.</div>`}
-      <div style="display:flex;gap:8px"><button type="button" class="act" style="flex:1;justify-content:center" data-invite="${t.id}">${ICON.team}팀원 초대</button>${t.items.length ? `<button type="button" class="wide" style="flex:1" data-weekly="${t.id}">주간 모음 복사</button>` : ""}</div></section>`).join("")}
+    <section class="card"><h3>팀 스크랩함</h3><div style="font-size:13px;color:var(--sub);line-height:1.6">팀원과 기사를 함께 모으고, 이번 주 모음을 메신저로 보낼 수 있어요. 기사 공유 › <b>팀에 담기</b>로 모아요.</div>
+      ${S.teams.map((x) => `<button type="button" class="dx-mini" data-pst="${x.id}" style="border:none;background:var(--bg);border-radius:var(--r-s);padding:10px 12px;text-align:left;color:var(--ink);display:flex;justify-content:space-between"><b>${esc(x.name)}</b><span style="color:var(--faint);font-size:12px">팀원 ${x.members.length}명 · ${x.items.length}건</span></button>`).join("")}</section>
     <button type="button" class="addcard" style="min-height:76px" data-teamstart>+ 팀 만들기 · 초대 코드로 참여</button></aside></div>`;
 }
 function catPC() {
@@ -238,9 +239,10 @@ bindCommon(app, render);
 bindSync(app, render);
 bindStats(app, render);
 bindCat(app, render);
-bindTeams(app, render, () => { tab = "scrap"; });
+bindTeams(app, render, (id) => { pcScrap = id; tab = "scrap"; });
 app.addEventListener("click", (e) => {
   const b = e.target.closest("button, [data-closedrawer]"); if (!b) return;
+  if (b.dataset.pst) { pcScrap = b.dataset.pst; if (tab !== "scrap") { tab = "scrap"; FX.enter = ".main"; window.scrollTo(0, 0); } render(); return; }
   if (b.dataset.tab) { if (b.dataset.tab !== tab) FX.enter = ".main"; tab = b.dataset.tab; render(); window.scrollTo(0, 0); return; }
   if (b.dataset.quick !== undefined) { quick = !quick; render(); return; }
   if (b.dataset.drawer !== undefined) { drawer = true; quick = false; render(); return; }
@@ -257,7 +259,6 @@ app.addEventListener("click", (e) => {
   if (b.dataset.hxclose !== undefined) { $$(".hx", app).forEach((n) => n.remove()); return; }
   if (b.dataset.more) { S.catView = { id: b.dataset.more, sort: "new", unread: false }; tab = "cat"; render(); window.scrollTo(0, 0); return; }
   if (b.dataset.back !== undefined) { tab = "topics"; render(); return; }
-  if (b.dataset.weekly !== undefined) { const txt = (teamOf(b.dataset.weekly) || S.teams[0]).items.map((x) => `□ ${x.title} (${x.who})`).join("\n"); try { navigator.clipboard.writeText(txt).catch(() => {}); } catch (err) {} toast(app, "이번 주 모음을 복사했어요"); return; }
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drawer) { drawer = false; render(); } });
 function tour() { startTour(app, (t) => { if (t !== tab) { tab = t; drawer = false; render(); window.scrollTo(0, 0); } }, render); }

@@ -89,12 +89,14 @@ function loadPrefs() {
     if (p.readDay === todayKey() && Array.isArray(p.read)) S.read = new Set(p.read); else S.read = new Set();
     // 예전 기본 분야(정책·제도 포함 4개)를 손대지 않고 쓰던 경우엔 새 기본 분야로 바꿈
     const oldDefault = !p.catsVer && Array.isArray(p.cats) && p.cats.map((c) => c.id).join() === "agri,sci,it,pol" && !p.cats.some((c) => c.user);
+    if (Array.isArray(p.myTeams)) S.myTeams = p.myTeams.filter((t) => t && t.code && t.token);
+    if (typeof p.nick === "string") S.nick = p.nick;
     if (!oldDefault && Array.isArray(p.cats) && p.cats.length) S.cats = p.cats.map((c) => ({ ...c, count: artsOf(c.id).length }));
   } catch (e) {}
 }
 function savePrefs() {
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify({ mode: S.mode, size: S.size, scrap: [...S.scrap], saved: Object.fromEntries([...S.scrap].filter((id) => S.saved[id]).map((id) => [id, S.saved[id]])), read: [...S.read], readDay: todayKey(), catsVer: 2,
+    localStorage.setItem(STORE_KEY, JSON.stringify({ mode: S.mode, size: S.size, scrap: [...S.scrap], saved: Object.fromEntries([...S.scrap].filter((id) => S.saved[id]).map((id) => [id, S.saved[id]])), read: [...S.read], readDay: todayKey(), catsVer: 2, myTeams: S.myTeams, nick: S.nick,
       cats: S.cats.map(({ id, name, p, words, ex, user }) => ({ id, name, p, words, ex, user })) }));
   } catch (e) {}
   syncSoon(); // 동기화 코드가 있으면 곧 서버에도 저장
@@ -314,7 +316,7 @@ function bindCommon(app, rerender) {
     if (t.dataset.close !== undefined) { closeSheet(app); return; }
     if (t.dataset.copy) {
       const a = findArt(t.dataset.sid), kind = t.dataset.copy; if (!a) return;
-      if (kind === "team") { toast(app, "팀 스크랩함은 곧 열려요"); return; }
+      if (kind === "team") { if (!S.teams.length) { S.sheet = { kind: "teamStart" }; renderSheet(app); toast(app, "먼저 팀을 만들거나 참여해 주세요"); return; } S.draftNote = ""; S.teamPick = S.teamPick && teamOf(S.teamPick) ? S.teamPick : S.teams[0].id; S.sheet = { kind: "teamAdd", arg: a.id }; renderSheet(app); return; }
       const copy = (txt, msg) => { const ok = () => toast(app, msg); try { navigator.clipboard.writeText(txt).then(ok, () => toast(app, "복사하지 못했어요 · 글을 길게 눌러 복사해 주세요")); } catch (err) { toast(app, "복사하지 못했어요 · 글을 길게 눌러 복사해 주세요"); return; } };
       DEX.shares += 1; saveDex();
       // 카카오톡: 휴대폰 공유 창(카카오톡·문자·밴드 등)을 띄움. 공유 창이 없는 PC에서는 복사로 대신
@@ -512,68 +514,179 @@ function dexSheet(id) {
       : `<p class="dx-line">출석 5일마다 랜덤으로 와요. 다음 친구까지 출석 ${5 - (DEX.days % 5)}일 남았어요.</p>`}`;
 }
 
-/* ── 팀 스크랩함: 만들기 · 초대 · 참여 ── */
-S.teams = [];
-const CODE_CH = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-const rnd4 = () => Array.from({ length: 4 }, () => CODE_CH[Math.floor(Math.random() * CODE_CH.length)]).join("");
+/* ── 팀 스크랩함 (/api/team → Supabase) ──
+   - 팀 초대 코드(TEAM-XXXX-XXXX)로 참여, 로그인 없음. 내가 들어간 팀 목록(S.myTeams)은 내 기록에 저장돼 동기화로 다른 기기에도 따라감
+   - 기사 빼기: 담은 사람과 팀을 만든 사람만. 팀 삭제: 만든 사람만. 기사는 계속 보관 */
+S.teams = []; S.myTeams = []; S.nick = "";
+const TEAM_RE = /^TEAM-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/;
 const teamOf = (id) => S.teams.find((t) => t.id === id);
-function inviteText(t) { return `[DAILY BRIEFING] '${t.name}' 팀 스크랩함에 초대해요\n아래 링크를 누르면 바로 들어와요.\n링크: daily-briefing.vercel.app/#join=${t.code}\n코드: ${t.code}`; }
+const myTeam = (code) => S.myTeams.find((t) => t.code === code);
+const appUrl = () => location.origin + "/";
+function inviteText(t) { return `[DAILY BRIEFING] '${t.name}' 팀 스크랩함에 초대해요\n아래 링크를 누르면 바로 들어와요.\n${appUrl()}#join=${t.code}\n(초대 코드: ${t.code})`; }
+async function teamApi(method, body, q) {
+  const r = await fetch("/api/team" + (q ? "?" + new URLSearchParams(q) : ""), { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.error || r.status), { status: r.status, code: j.error });
+  return j;
+}
+const TEAM_ERR = { "not-configured": "팀 서버 준비 중이에요", "no-team": "없거나 삭제된 팀이에요", "bad-code": "TEAM-XXXX-XXXX 모양의 코드를 넣어 주세요", "need-name": "이름을 넣어 주세요", already: "이미 이 팀에 담긴 기사예요", "not-allowed": "담은 사람이나 팀을 만든 사람만 할 수 있어요", "not-member": "이 팀에서 나간 상태예요" };
+const teamErr = (e) => TEAM_ERR[e.code] || "잠시 뒤 다시 해 주세요";
+/* 내 팀들 최신 내용 받기 */
+async function loadTeams() {
+  const list = await Promise.all(S.myTeams.map(async (m) => {
+    try { const j = await teamApi("GET", null, { code: m.code, token: m.token });
+      m.name = j.team.name;
+      return { id: m.code, code: m.code, name: j.team.name, owner: j.team.owner, me: j.me, isOwner: j.team.owner === j.me, members: j.members, items: j.items };
+    } catch (e) {
+      if (e.status === 404 || e.status === 403) return { gone: m.code };
+      const old = teamOf(m.code); return old || { id: m.code, code: m.code, name: m.name, members: [], items: [], me: m.member, isOwner: m.owner, offline: true };
+    }
+  }));
+  const gone = list.filter((x) => x.gone).map((x) => x.gone);
+  if (gone.length) { S.myTeams = S.myTeams.filter((m) => !gone.includes(m.code)); savePrefs(); }
+  S.teams = list.filter((x) => !x.gone);
+  return gone;
+}
+function weeklyText(t) {
+  const wk = Date.now() - 7 * 864e5;
+  const items = t.items.filter((x) => Date.parse(x.created_at) >= wk);
+  return `[${t.name}] 이번 주 모은 기사 ${items.length}건\n` + items.map((x) => `□ ${x.title}${x.src ? ` (${x.src})` : ""}${x.note ? `\n - ${x.note}` : ""}${x.link ? `\n - ${x.link}` : ""}\n   ${x.who} 님`).join("\n");
+}
+const shortDate = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : `${d.getMonth() + 1}.${d.getDate()}`; };
 function teamSheet(kind, arg) {
   const head = (h, x = "닫기") => `<div class="grab"></div><div class="sh-head"><h2>${h}</h2><button type="button" class="x" data-close>${x}</button></div>`;
+  const nickField = `<label class="lbl" for="f-nick">팀원에게 보일 내 이름</label><input class="fld" id="f-nick" placeholder="예: 권경석" maxlength="20" autocomplete="off" value="${esc(S.draftNick ?? S.nick)}">`;
   if (kind === "teamStart") return head("팀 스크랩함") + `<p class="tm-p">팀원끼리 기사를 함께 모으는 공간이에요. 로그인 없이 초대 코드로 들어와요.</p>
     <button type="button" class="tm-opt" data-teamnew><b>새 팀 만들기</b><span>팀 이름만 정하면 초대 코드가 바로 생겨요</span></button>
     <button type="button" class="tm-opt" data-teamjoin><b>초대 코드로 참여</b><span>받은 코드(TEAM-로 시작)를 넣어요</span></button>`;
   if (kind === "teamNew") return head("새 팀 만들기", "취소") + `<label class="lbl" for="f-team">팀 이름</label>
-    <input class="fld" id="f-team" placeholder="예: 연구제도팀, 스마트팜 스터디" autocomplete="off" value="${esc(S.draftTeam || "")}">
-    <p class="tm-p">팀 이름은 나중에 바꿀 수 있어요.</p>
-    <button type="button" class="cta" data-teamcreate ${(S.draftTeam || "").trim() ? "" : "disabled"}>팀 만들기</button>`;
+    <input class="fld" id="f-team" placeholder="예: 연구제도팀, 스마트팜 스터디" maxlength="30" autocomplete="off" value="${esc(S.draftTeam || "")}">
+    ${nickField}
+    <button type="button" class="cta" data-teamcreate>팀 만들기</button>`;
   if (kind === "teamJoin") return head("초대 코드로 참여", "취소") + `<label class="lbl" for="f-code">초대 코드</label>
-    <input class="fld" id="f-code" placeholder="TEAM-XXXX-XXXX" autocomplete="off" style="text-transform:uppercase;letter-spacing:.04em" value="${esc(S.draftCode || "")}">
-    <p class="tm-p">초대 링크를 눌러 들어오면 이 칸은 자동으로 채워져요.</p>
-    <button type="button" class="cta" data-dojoin ${/^TEAM-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test((S.draftCode || "").trim()) ? "" : "disabled"}>참여하기</button>`;
+    <input class="fld" id="f-code" placeholder="TEAM-XXXX-XXXX" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:.04em" value="${esc(S.draftCode || "")}">
+    ${nickField}
+    <p class="tm-p">초대 링크를 눌러 들어오면 코드 칸은 자동으로 채워져요.</p>
+    <button type="button" class="cta" data-dojoin>참여하기</button>`;
   if (kind === "invite") {
-    const t = teamOf(arg);
+    const t = teamOf(arg); if (!t) return "";
     return head(arg === S.justMade ? "팀을 만들었어요" : "팀원 초대") + `<div class="tm-code"><small>${esc(t.name)} 초대 코드</small><b>${t.code}</b><span>팀원 ${t.members.length}명</span></div>
       <div class="share-g" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-        <button type="button" data-inv="kakao"><span class="ic" style="background:#FEE500">${ICON.talk}</span>카카오톡</button>
-        <button type="button" data-inv="msg"><span class="ic" style="background:#E6F7EE;color:#11804A">${ICON.copy}</span>초대 문구 복사</button>
-        <button type="button" data-inv="link"><span class="ic" style="background:#F1F3F7;color:#46546B">${ICON.link}</span>링크 복사</button></div>
-      <div class="copybox"><b>네이버웍스 등 메신저에 붙여넣기</b><pre id="invtext">${esc(inviteText(t))}</pre></div>
+        <button type="button" data-inv="kakao" data-tid="${t.id}"><span class="ic" style="background:#FEE500">${ICON.talk}</span>${navigator.share ? "카카오톡·앱으로" : "카카오톡"}</button>
+        <button type="button" data-inv="msg" data-tid="${t.id}"><span class="ic" style="background:#E6F7EE;color:#11804A">${ICON.copy}</span>초대 문구 복사</button>
+        <button type="button" data-inv="link" data-tid="${t.id}"><span class="ic" style="background:#F1F3F7;color:#46546B">${ICON.link}</span>링크 복사</button></div>
+      <div class="copybox"><b>네이버웍스 등 메신저에 붙여넣기</b><pre>${esc(inviteText(t))}</pre></div>
       <p class="tm-p" style="font-size:12px">코드를 아는 사람은 누구나 들어올 수 있어요. 팀원에게만 보내 주세요.</p>`;
+  }
+  if (kind === "teamAdd") {
+    const a = findArt(arg); if (!a) return "";
+    const pick = S.teamPick || (S.teams[0] && S.teams[0].id);
+    return head("팀에 담기", "취소") + `<div class="tcard" style="padding:12px 14px"><div class="tt">${esc(a.title)}</div><small style="color:var(--faint)">${esc(a.src)}</small></div>
+      ${S.teams.length > 1 ? `<div style="display:flex;flex-direction:column;gap:8px"><span class="lbl">어느 팀에 담을까요?</span><div class="pills" style="flex-wrap:wrap;padding:0">${S.teams.map((t) => `<button type="button" data-tpick="${t.id}" aria-pressed="${pick === t.id}">${esc(t.name)}</button>`).join("")}</div></div>` : `<p class="tm-p"><b>${esc(S.teams[0].name)}</b> 팀 스크랩함에 담아요.</p>`}
+      <label class="lbl" for="f-note">한 줄 메모 <small>· 없어도 돼요</small></label>
+      <input class="fld" id="f-note" placeholder="예: 다음 회의 때 공유" maxlength="200" autocomplete="off" value="${esc(S.draftNote || "")}">
+      <button type="button" class="cta" data-tadd="${esc(arg)}">담기</button>`;
+  }
+  if (kind === "teamSet") {
+    const t = teamOf(arg); if (!t) return "";
+    return head(esc(t.name)) + `<div style="display:flex;flex-direction:column;gap:2px"><span class="lbl">팀원 ${t.members.length}명</span>
+      ${t.members.map((m) => `<div class="sy-dev"><b>${esc(m.name)}${m.id === t.me ? " (나)" : ""}</b><span>${m.id === t.owner ? "만든 사람" : "팀원"}</span></div>`).join("")}</div>
+      <button type="button" class="cta" data-invite="${t.id}">팀원 초대</button>
+      ${t.isOwner
+        ? `<button type="button" class="delcat${S.askTeamDel ? " ask" : ""}" data-tdel="${t.id}">${S.askTeamDel ? "한 번 더 누르면 팀과 담긴 기사가 모두 지워져요" : "팀 삭제"}</button><p class="tm-p" style="font-size:12px;text-align:center">만든 사람은 나가기 대신 팀을 삭제할 수 있어요.</p>`
+        : `<button type="button" class="delcat${S.askTeamDel ? " ask" : ""}" data-tleave="${t.id}">${S.askTeamDel ? "한 번 더 누르면 팀에서 나가요 (내가 담은 기사는 남아요)" : "팀 나가기"}</button>`}`;
   }
   return "";
 }
+function teamBodyHTML(t) {
+  const wk = Date.now() - 7 * 864e5, n7 = t.items.filter((x) => Date.parse(x.created_at) >= wk).length;
+  return `<div class="team-hero"><b>${esc(t.name)} · 팀원 ${t.members.length}명</b><span>${t.items.length ? `모두 ${t.items.length}건 · 이번 주 ${n7}건` : "아직 담은 기사가 없어요. 기사 공유 › 팀에 담기로 모아요."}${t.offline ? " · 연결이 안 돼서 마지막 내용을 보여 줘요" : ""}</span>
+    <div class="tm-acts"><button type="button" data-invite="${t.id}">${ICON.team}팀원 초대</button>${n7 ? `<button type="button" data-weekly="${t.id}">${ICON.copy}이번 주 모음 복사</button>` : ""}<button type="button" data-tset="${t.id}">${ICON.gear}팀 관리</button></div></div>
+    ${t.items.map((x) => { const c = S.cats.find((k) => k.name === x.cat); const can = x.member === t.me || t.isOwner;
+      return `<article class="tcard"><div class="who"><span class="chip" style="background:#FFF4D6;color:#7A5A06">${esc(x.who)} 님이 담음</span>${x.cat ? (c ? chipCat(c) : `<span class="chip">${esc(x.cat)}</span>`) : ""}<span class="tdate">${shortDate(x.created_at)}</span>${can ? `<button type="button" class="tdel" data-tremove="${t.id}:${x.id}" aria-label="빼기">빼기</button>` : ""}</div>
+        ${x.link ? `<a class="tt" href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.title)}</a>` : `<div class="tt">${esc(x.title)}</div>`}${x.src ? `<small class="tsrc">${esc(x.src)}</small>` : ""}${x.note ? `<div class="note">${esc(x.note)}</div>` : ""}</article>`; }).join("")}`;
+}
 function bindTeams(app, rerender, onTeam) {
-  app.addEventListener("click", (e) => {
+  const refresh = () => loadTeams().then((gone) => { rerender(); if (gone.length) toast(app, "삭제됐거나 나간 팀을 목록에서 뺐어요"); }).catch(() => {});
+  if (S.myTeams.length) refresh();
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S.myTeams.length) refresh(); });
+  // 초대 링크(#join=TEAM-…)로 들어오면 참여 창 열기
+  const fromLink = () => {
+    const m = location.hash.match(/join=(TEAM-[A-Z0-9-]+)/i); if (!m) return;
+    history.replaceState(null, "", location.pathname + location.search); const code = m[1].toUpperCase();
+    if (myTeam(code)) { onTeam(code); rerender(); } else setTimeout(() => { S.draftCode = code; S.draftNick = S.nick; S.sheet = { kind: "teamJoin" }; renderSheet(app); }, 400);
+  };
+  fromLink(); window.addEventListener("hashchange", fromLink);
+  const nickOk = () => { const v = (($("#f-nick", app) || {}).value || "").trim(); if (!v) { toast(app, "팀원에게 보일 이름을 넣어 주세요"); return ""; } return v; };
+  app.addEventListener("click", async (e) => {
     const t = e.target.closest("button"); if (!t || !app.contains(t)) return;
-    if (t.dataset.teamstart !== undefined) { toast(app, "팀 스크랩함은 곧 열려요 · 서버 연결 뒤 바로 쓸 수 있어요"); return; }
-    if (t.dataset.teamnew !== undefined) { S.draftTeam = ""; S.sheet = { kind: "teamNew" }; renderSheet(app); $("#f-team", app).focus(); return; }
-    if (t.dataset.teamjoin !== undefined) { S.draftCode = ""; S.sheet = { kind: "teamJoin" }; renderSheet(app); $("#f-code", app).focus(); return; }
+    if (t.dataset.teamstart !== undefined) { S.sheet = { kind: "teamStart" }; renderSheet(app); return; }
+    if (t.dataset.teamnew !== undefined) { S.draftTeam = ""; S.draftNick = S.nick; S.sheet = { kind: "teamNew" }; renderSheet(app); $("#f-team", app).focus(); return; }
+    if (t.dataset.teamjoin !== undefined) { S.draftCode = ""; S.draftNick = S.nick; S.sheet = { kind: "teamJoin" }; renderSheet(app); $("#f-code", app).focus(); return; }
     if (t.dataset.invite) { S.justMade = null; S.sheet = { kind: "invite", arg: t.dataset.invite }; renderSheet(app); return; }
+    if (t.dataset.tset) { S.askTeamDel = false; S.sheet = { kind: "teamSet", arg: t.dataset.tset }; renderSheet(app); return; }
+    if (t.dataset.tpick) { S.teamPick = t.dataset.tpick; S.draftNote = ($("#f-note", app) || {}).value || ""; renderSheet(app); return; }
+    if (t.dataset.weekly) { const tm = teamOf(t.dataset.weekly); try { navigator.clipboard.writeText(weeklyText(tm)).then(() => toast(app, "이번 주 모음을 복사했어요 · 단체방에 붙여넣으세요")); } catch (err) {} return; }
     if (t.dataset.teamcreate !== undefined) {
-      const id = "t" + Date.now(); S.teams.push({ id, name: S.draftTeam.trim(), code: `TEAM-${rnd4()}-${rnd4()}`, members: ["경석"], items: [] });
-      S.justMade = id; S.sheet = { kind: "invite", arg: id }; renderSheet(app); onTeam(id); rerender(); return;
+      const name = (($("#f-team", app) || {}).value || "").trim(); if (!name) { toast(app, "팀 이름을 넣어 주세요"); return; }
+      const nick = nickOk(); if (!nick) return;
+      t.disabled = true;
+      try { const j = await teamApi("POST", { action: "create", name, nick });
+        S.nick = nick; S.myTeams.push({ code: j.code, name: j.name, member: j.member, token: j.token, owner: true }); savePrefs();
+        await loadTeams(); S.justMade = j.code; S.sheet = { kind: "invite", arg: j.code }; renderSheet(app); onTeam(j.code); rerender();
+      } catch (err) { t.disabled = false; toast(app, teamErr(err)); }
+      return;
     }
     if (t.dataset.dojoin !== undefined) {
-      const id = "t" + Date.now(); S.teams.push({ id, name: "스마트팜 스터디", code: S.draftCode.trim().toUpperCase(), members: ["다은", "현우", "경석"], items: [{ who: "다은", title: "스마트팜 청년 창업 지원 확대", cat: "agri", note: "다음 모임 때 이야기해요" }] });
-      closeSheet(app); onTeam(id); rerender(); toast(app, "'스마트팜 스터디'에 들어왔어요 (예시)"); return;
+      const code = (($("#f-code", app) || {}).value || "").trim().toUpperCase().replace(/\s/g, "");
+      if (!TEAM_RE.test(code)) { toast(app, TEAM_ERR["bad-code"]); return; }
+      if (myTeam(code)) { closeSheet(app); onTeam(code); rerender(); toast(app, "이미 들어가 있는 팀이에요"); return; }
+      const nick = nickOk(); if (!nick) return;
+      t.disabled = true;
+      try { const j = await teamApi("POST", { action: "join", code, nick });
+        S.nick = nick; S.myTeams.push({ code: j.code, name: j.name, member: j.member, token: j.token, owner: false }); savePrefs();
+        await loadTeams(); closeSheet(app); onTeam(j.code); rerender(); toast(app, `'${j.name}' 팀에 들어왔어요`);
+      } catch (err) { t.disabled = false; toast(app, teamErr(err)); }
+      return;
     }
     if (t.dataset.inv) {
-      const tx = $("#invtext", app).textContent, code = tx.match(/코드: (\S+)/)[1];
-      if (t.dataset.inv !== "kakao") { try { navigator.clipboard.writeText(t.dataset.inv === "link" ? `daily-briefing.vercel.app/#join=${code}` : tx).catch(() => {}); } catch (err) {} }
-      toast(app, { kakao: "카카오톡 공유 창이 열려요 (실제 앱)", msg: "초대 문구를 복사했어요", link: "초대 링크를 복사했어요" }[t.dataset.inv]); return;
+      const tm = teamOf(t.dataset.tid), text = inviteText(tm), link = `${appUrl()}#join=${tm.code}`;
+      const copy = (v, msg) => { try { navigator.clipboard.writeText(v).then(() => toast(app, msg), () => toast(app, "복사하지 못했어요 · 글을 길게 눌러 복사해 주세요")); } catch (err) {} };
+      if (t.dataset.inv === "kakao") { if (navigator.share) navigator.share({ title: `'${tm.name}' 팀 스크랩함 초대`, text: text.replace(/\n\S+#join=\S+/, ""), url: link }).catch(() => {}); else copy(text, "복사했어요 · 카카오톡에 붙여넣으세요"); return; }
+      copy(t.dataset.inv === "link" ? link : text, t.dataset.inv === "link" ? "초대 링크를 복사했어요" : "초대 문구를 복사했어요"); return;
+    }
+    if (t.dataset.tadd) {
+      const a = findArt(t.dataset.tadd), tm = teamOf(S.teamPick || S.teams[0].id), mt = myTeam(tm.code), c = cat(a.cat);
+      t.disabled = true;
+      try { await teamApi("POST", { action: "add", code: tm.code, token: mt.token, item: { art: a.id, title: a.title, link: a.link || "", src: a.src || "", cat: c ? c.name : "", note: (($("#f-note", app) || {}).value || "").trim() } });
+        DEX.shares += 1; saveDex(); closeSheet(app); await loadTeams(); rerender(); toast(app, `'${tm.name}'에 담았어요`);
+      } catch (err) { t.disabled = false; toast(app, teamErr(err)); }
+      return;
+    }
+    if (t.dataset.tremove) {
+      const [tid, id] = t.dataset.tremove.split(":"), tm = teamOf(tid), mt = myTeam(tid);
+      if (!t.dataset.ask) { t.dataset.ask = "1"; t.textContent = "한 번 더"; t.classList.add("ask"); setTimeout(() => { if (t.isConnected) { delete t.dataset.ask; t.textContent = "빼기"; t.classList.remove("ask"); } }, 3000); return; }
+      try { await teamApi("POST", { action: "remove", code: tm.code, token: mt.token, id }); tm.items = tm.items.filter((x) => String(x.id) !== id); rerender(); toast(app, "팀 스크랩함에서 뺐어요"); }
+      catch (err) { toast(app, teamErr(err)); }
+      return;
+    }
+    if (t.dataset.tleave || t.dataset.tdel) {
+      const code = t.dataset.tleave || t.dataset.tdel, mt = myTeam(code);
+      if (!S.askTeamDel) { S.askTeamDel = true; renderSheet(app); return; }
+      try { await teamApi("POST", { action: t.dataset.tdel ? "delete" : "leave", code, token: mt.token });
+        S.myTeams = S.myTeams.filter((x) => x.code !== code); S.teams = S.teams.filter((x) => x.id !== code); savePrefs();
+        S.askTeamDel = false; closeSheet(app); onTeam("mine"); rerender(); toast(app, t.dataset.tdel ? "팀을 삭제했어요" : "팀에서 나왔어요");
+      } catch (err) { toast(app, teamErr(err)); }
+      return;
     }
   });
   app.addEventListener("input", (e) => {
     if (e.target.id === "f-kw" && S.draft) { const b = $("[data-addcat]", app); if (b) b.disabled = !(S.draft.name.trim() && (S.draft.words.length || e.target.value.trim())); }
-    if (e.target.id === "f-team") { S.draftTeam = e.target.value; $("[data-teamcreate]", app).disabled = !S.draftTeam.trim(); }
-    if (e.target.id === "f-code") { S.draftCode = e.target.value; $("[data-dojoin]", app).disabled = !/^TEAM-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(S.draftCode.trim()); }
+    if (e.target.id === "f-team") S.draftTeam = e.target.value;
+    if (e.target.id === "f-code") S.draftCode = e.target.value;
+    if (e.target.id === "f-nick") S.draftNick = e.target.value;
+    if (e.target.id === "f-note") S.draftNote = e.target.value;
   });
-}
-function teamBodyHTML(t, wideCls = "wide") {
-  return `<div class="team-hero"><b>${esc(t.name)} · 팀원 ${t.members.length}명</b><span>${t.items.length ? `이번 주 모은 기사 ${t.items.length}건 · 한 번에 묶어 단체방에 붙여넣을 수 있어요` : "아직 담은 기사가 없어요. 기사 공유 › 팀에 담기로 모아요."}</span>
-    <div class="tm-acts"><button type="button" data-invite="${t.id}">${ICON.team}팀원 초대</button>${t.items.length ? `<button type="button" data-weekly>${ICON.copy}주간 모음 복사</button>` : ""}</div></div>
-    ${t.items.map((x) => { const c = cat(x.cat) || S.cats[0]; return `<article class="tcard"><div class="who"><span class="chip" style="background:#FFF4D6;color:#7A5A06">${esc(x.who)} 님이 담음</span>${chipCat(c)}</div><div class="tt">${esc(x.title)}</div>${x.note ? `<div class="note">${esc(x.note)}</div>` : ""}</article>`; }).join("")}`;
 }
 
 /* ── PC·휴대폰 동기화 (/api/sync → Supabase) ──
@@ -605,6 +718,8 @@ function mergeData(r, l, dirty) {
   else {
     p = { ...rp, ...lp, scrap: uniq(rp.scrap || [], lp.scrap || []), saved: { ...(rp.saved || {}), ...(lp.saved || {}) } };
     if (rp.readDay === lp.readDay) p.read = uniq(rp.read || [], lp.read || []);
+    // 팀 목록은 합침 (나간 팀은 다음에 불러올 때 서버가 알려 줘서 빠짐)
+    const tm = [...(rp.myTeams || []), ...(lp.myTeams || [])]; p.myTeams = tm.filter((t, i) => tm.findIndex((x) => x.code === t.code) === i);
   }
   const rd = r.dex || {}, ld = l.dex || {};
   const rFirst = (rd.days || 0) > (ld.days || 0) || ((rd.days || 0) === (ld.days || 0) && dayNum(rd.last) >= dayNum(ld.last));
@@ -617,7 +732,9 @@ function applyData(d) {
   const before = JSON.stringify(S.cats.map((c) => [c.id, c.words, c.ex]));
   try { localStorage.setItem(STORE_KEY, JSON.stringify(d.prefs || {})); localStorage.setItem(DEX_KEY, JSON.stringify(d.dex || {})); } catch (e) {}
   S.sync.devices = d.devices || {};
+  const teamsBefore = S.myTeams.map((t) => t.code).join();
   loadPrefs(); loadDex();
+  if (S.myTeams.map((t) => t.code).join() !== teamsBefore) loadTeams().then(() => syncRerender()).catch(() => {});
   if (JSON.stringify(S.cats.map((c) => [c.id, c.words, c.ex])) !== before) fetchNews().then((n) => { applyNews(n); syncRerender(); }).catch(() => {});
 }
 async function syncApi(method, body, code) {

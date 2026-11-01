@@ -75,18 +75,7 @@ body { margin: 0; background: #E9EDF3; }
 .app[data-mode="digest"] .addbtn { color: var(--ink); }
 
 /* 스크랩 */
-.pills { display: flex; gap: 6px; padding-bottom: 10px; }
-.pills button { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: calc(13px * var(--s)); font-weight: 700; color: var(--sub); }
-.pills button[aria-pressed="true"] { background: var(--navy); color: var(--bg); border-color: var(--navy); }
 .app[data-mode="jogan"] .pills button { border-radius: 0; }
-.team-hero { background: var(--navy); color: var(--bg); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 4px; }
-.team-hero b { font-size: calc(15px * var(--sh)); }
-.team-hero span { font-size: calc(12px * var(--s)); opacity: 0.75; }
-.tcard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
-.tcard .who { display: flex; gap: 5px; flex-wrap: wrap; }
-.tcard .tt { font-size: calc(15px * var(--s)); font-weight: 700; line-height: 1.45; }
-.tcard .note { font-size: calc(12px * var(--s)); color: var(--sub); background: var(--bg); border-radius: 8px; padding: 8px 10px; }
-.app[data-mode="jogan"] .tcard { border: none; border-top: 1px solid var(--line); border-radius: 0; padding: 12px 0; background: none; }
 .wide { height: 46px; border: none; border-radius: 12px; background: #2457E6; color: #FFFFFF; font-size: calc(14px * var(--s)); font-weight: 800; flex: none; }
 .app[data-mode="jogan"] .wide, .app[data-mode="digest"] .wide { background: var(--btn-bg); color: var(--btn-fg); }
 .app[data-mode="jogan"] .wide { border-radius: 0; }
@@ -239,7 +228,6 @@ app.addEventListener("click", (e) => {
   if (b.dataset.jump) { const el = $("#sec-" + b.dataset.jump); if (el) el.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
   if (b.dataset.st) { scrapTab = b.dataset.st; render(); return; }
   if (b.dataset.tmv) { topicMode = b.dataset.tmv; render(); $("#screen .scroll").scrollTop = 0; return; }
-  if (b.dataset.weekly !== undefined) { const txt = (teamOf(scrapTab) || S.teams[0]).items.map((x) => `□ ${x.title} (${x.who})`).join("\n"); try { navigator.clipboard.writeText(txt).catch(() => {}); } catch (err) {} toast(app, "이번 주 모음을 복사했어요"); return; }
   if (b.dataset.mode && b.closest(".thumbs")) { S.mode = b.dataset.mode; savePrefs(); render(); return; }
   if (b.dataset.size) { S.size = +b.dataset.size; savePrefs(); render(); return; }
   if (b.dataset.delcat) { S.cats = S.cats.filter((c) => c.id !== b.dataset.delcat); savePrefs(); render(); toast(app, "분야를 삭제했어요"); return; }

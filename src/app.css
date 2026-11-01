@@ -537,3 +537,26 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 /* 글자 링크 버튼 (PC·모바일 공통) */
 .lnk { background: none; border: none; padding: 0; font-size: calc(13px * var(--s)); font-weight: 700; color: #2457E6; }
 .app[data-mode="jogan"] .lnk, .app[data-mode="digest"] .lnk { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+/* 팀 스크랩함 */
+.team-hero { background: var(--navy); color: var(--bg); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.team-hero b { font-size: calc(15px * var(--sh)); }
+.team-hero span { font-size: calc(12px * var(--s)); opacity: 0.75; }
+.tcard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.tcard .who { display: flex; gap: 5px; flex-wrap: wrap; }
+.tcard .tt { font-size: calc(15px * var(--s)); font-weight: 700; line-height: 1.45; }
+.tcard .note { font-size: calc(12px * var(--s)); color: var(--sub); background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+.app[data-mode="jogan"] .tcard { border: none; border-top: 1px solid var(--line); border-radius: 0; padding: 12px 0; background: none; }
+.tcard .who { align-items: center; }
+.tcard .tdate { margin-left: auto; font-size: calc(12px * var(--s)); color: var(--faint); }
+.tcard .tdel { border: none; background: none; color: var(--faint); font-size: calc(12px * var(--s)); font-weight: 700; padding: 4px 6px; border-radius: 6px; }
+.tcard .tdel.ask { background: #FBE4E4; color: #B42828; }
+.tcard a.tt { color: inherit; text-decoration: none; }
+.tcard .tsrc { font-size: calc(12px * var(--s)); color: var(--faint); }
+.team-hero .tm-acts button { background: rgba(255,255,255,.12); color: inherit; border: 1px solid rgba(255,255,255,.25); }
+.team-list { display: flex; flex-direction: column; gap: 10px; }
+
+/* 알약 버튼 (PC·모바일 공통) */
+.pills { display: flex; gap: 6px; padding-bottom: 10px; }
+.pills button { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: calc(13px * var(--s)); font-weight: 700; color: var(--sub); }
+.pills button[aria-pressed="true"] { background: var(--navy); color: var(--bg); border-color: var(--navy); }

@@ -6,29 +6,14 @@
 // POST /api/sync { data }          → 새 코드 만들기 → { code, updated_at }
 // PUT  /api/sync { code, data }    → 저장 → { updated_at }
 import { randomInt } from "node:crypto";
+import { supabase, readBody } from "./_supabase.js";
 
 const ABC = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"; // 헷갈리는 0·O·1·I 뺌
 const CODE_RE = /^DB-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/;
 const MAX = 300 * 1024; // 기록 크기 상한
 const newCode = () => "DB-" + [0, 1, 2].map(() => Array.from({ length: 4 }, () => ABC[randomInt(ABC.length)]).join("")).join("-");
 
-function db() {
-  const url = (process.env.SUPABASE_URL || "").replace(/\/$/, ""), key = process.env.SUPABASE_SECRET_KEY || "";
-  if (!url || !key) return null;
-  const headers = { apikey: key, "Content-Type": "application/json", Prefer: "return=representation" };
-  if (!key.startsWith("sb_")) headers.Authorization = `Bearer ${key}`; // 예전 JWT 키
-  return async (method, query, body) => {
-    const r = await fetch(`${url}/rest/v1/sync_profiles${query}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
-    const text = await r.text();
-    if (!r.ok) { const e = new Error(`supabase ${r.status}: ${text.slice(0, 200)}`); e.status = r.status; throw e; }
-    return text ? JSON.parse(text) : [];
-  };
-}
-async function readBody(req) {
-  if (req.body && typeof req.body === "object") return req.body;
-  if (typeof req.body === "string") return JSON.parse(req.body || "{}");
-  let s = ""; for await (const c of req) s += c; return JSON.parse(s || "{}");
-}
+function db() { const sb = supabase(); return sb && ((method, query, body) => sb(method, "sync_profiles", query, body)); }
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");

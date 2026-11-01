@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DAILY BRIEFING</title>
 <link rel="icon" href="assets/img/wave.webp">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="데일리 브리핑">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script>if (innerWidth < 900) location.replace("index.html?m=1" + location.hash);</script>
 <link rel="stylesheet" href="assets/app.css">
 <style>
@@ -190,7 +196,7 @@ function catPC() {
 }
 function statsPC() {
   return `<div class="wrap main"><section class="col" style="flex-basis:100%">
-    <div class="h2row"><h2>통계</h2><span style="margin-left:auto;font-size:13px;color:var(--faint)">내 분야 검색어 기준 · 매일 오전 6시 갱신</span></div>
+    <div class="h2row"><h2>통계</h2><span style="margin-left:auto;font-size:13px;color:var(--faint)">'농촌진흥청' 기사 기준 · 30분마다 갱신</span></div>
     ${statsHTML(true)}</section></div>`;
 }
 function dexPC() {

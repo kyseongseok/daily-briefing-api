@@ -343,7 +343,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .st-leg { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: calc(11.5px * var(--s)); color: var(--sub); }
 .st-leg span { display: inline-flex; align-items: center; gap: 5px; }
 .st-leg i { width: 9px; height: 9px; border-radius: 2px; }
-.st-bar { display: grid; grid-template-columns: 78px 1fr 34px; align-items: center; gap: 8px; font-size: calc(13px * var(--s)); }
+.st-bar { display: grid; grid-template-columns: 108px 1fr 34px; align-items: center; gap: 8px; font-size: calc(13px * var(--s)); }
 .st-bar i { height: 10px; border-radius: 5px; background: var(--line2); overflow: hidden; }
 .st-bar i em { display: block; height: 100%; border-radius: 5px; }
 .st-bar b { text-align: right; font-variant-numeric: tabular-nums; }
@@ -506,3 +506,17 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .tour .tr-prev { flex: 0 0 96px; border: 1px solid var(--line); background: var(--surface); color: var(--sub); }
 .tour .tr-next { flex: 1; border: none; background: #2457E6; color: #fff; }
 .tour .tr-card.still { animation: none; }
+
+/* 홈 화면에 추가 안내 */
+.a2hs .tr-top { align-items: center; }
+.a2hs .tr-top h2 { margin: 0 0 2px; }
+.a2hs .a2-os { display: flex; gap: 6px; }
+.a2hs .a2-os button { flex: 1; height: 42px; }
+.a2hs .a2-p { margin: 0; }
+.a2hs .a2-steps { margin: 0; padding: 12px 14px 12px 32px; background: var(--bg); border-radius: 14px; display: flex; flex-direction: column; gap: 10px; font-size: 14.5px; line-height: 1.55; color: var(--sub); }
+.a2hs .a2-steps b { color: var(--ink); }
+.a2hs .a2-ic { display: inline-flex; align-items: center; gap: 3px; color: #2457E6 !important; vertical-align: -3px; }
+.a2hs .a2-warn { font-size: 13.5px; line-height: 1.55; padding: 10px 12px; border-radius: 12px; background: #FFF4D6; color: #7A5A06; }
+.a2hs .a2-go { height: 50px; border-radius: 14px; font-size: 15px; font-weight: 800; }
+.st-rank { color: inherit; text-decoration: none; }
+.st-bar span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -6,6 +6,12 @@
 <title>DAILY BRIEFING</title>
 <meta name="theme-color" content="#F3F6FB">
 <link rel="icon" href="assets/img/wave.webp">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="데일리 브리핑">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script>if (innerWidth >= 1024 && !/[?&]m=1/.test(location.search)) location.replace("pc.html" + location.hash);</script>
 <link rel="stylesheet" href="assets/app.css">
 <style>
@@ -198,6 +204,7 @@ function settingsView() {
     <section class="box" style="gap:2px"><h3 style="padding-bottom:6px">내 분야<span class="r"><button type="button" class="lnk" data-addopen>+ 추가</button></span></h3>
       ${S.cats.map((c) => `<button type="button" class="mycat" data-edit="${c.id}" style="${cvars(c)}"><i></i>${esc(c.name)}<span>검색어 ${(c.words || []).length}개</span><em>수정 ›</em></button>`).join("")}</section>
     <section class="box" style="flex-direction:row;align-items:center"><div style="flex:1"><h3>PC·휴대폰 동기화 <button type="button" class="qhelp" data-synchelp aria-label="동기화 사용 방법">?</button></h3><div style="font-size:12px;color:var(--faint);margin-top:4px">곧 열려요 · 지금은 이 기기에만 저장돼요</div></div><button type="button" class="lnk" data-sync>관리 ›</button></section>
+    ${isStandalone() ? "" : `<button type="button" class="addbtn" data-a2hs>홈 화면에 추가하기</button>`}
     <button type="button" class="addbtn" data-tour>사용 안내 다시 보기</button>
     ${CREDIT}</div>`;
 }
@@ -237,10 +244,12 @@ app.addEventListener("click", (e) => {
   if (b.dataset.delcat) { S.cats = S.cats.filter((c) => c.id !== b.dataset.delcat); savePrefs(); render(); toast(app, "분야를 삭제했어요"); return; }
   if (b.dataset.replay !== undefined) { playIntro(app); return; }
   if (b.dataset.tour !== undefined) { tour(); return; }
+  if (b.dataset.a2hs !== undefined) { showA2HS(app); return; }
 });
 function tour() { startTour(app, (t) => { if (t !== tab) { tab = t; render(); const sc = $("#screen .scroll"); if (sc) sc.scrollTop = 0; } }, render); }
 bootNews(render);
-const firstTour = () => { if (!tourSeen()) tour(); };
+S.afterTour = () => { if (a2hsDue()) showA2HS(app); };
+const firstTour = () => { if (!tourSeen()) tour(); else setTimeout(S.afterTour, 800); };
 if (!sessionStorage.getItem("db-intro")) { sessionStorage.setItem("db-intro", "1"); playIntro(app, firstTour); } else firstTour();
 </script>
 </body>

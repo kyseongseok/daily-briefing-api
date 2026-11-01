@@ -20,8 +20,8 @@ const PRESS = {
   "spotvnews.co.kr": "스포티비뉴스", "osen.co.kr": "OSEN", "sportschosun.com": "스포츠조선", "isplus.com": "일간스포츠", "xportsnews.com": "엑스포츠뉴스",
 };
 
-const clean = (s = "") => s.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
-function press(url = "") {
+export const clean = (s = "") => s.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+export function press(url = "") {
   try {
     const h = new URL(url).hostname.replace(/^www\.|^m\.|^news\.|^biz\.|^sports\./, "");
     const k = Object.keys(PRESS).find((d) => h === d || h.endsWith("." + d));
@@ -33,8 +33,8 @@ const words = (t) => new Set(t.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).fi
 // 제목 단어가 3개 이상 겹치고, 짧은 쪽 제목의 60% 이상이 같으면 같은 소식으로 본다
 function similar(a, b) { let n = 0; for (const w of a) if (b.has(w)) n++; return n >= 3 ? n / Math.min(a.size, b.size || 1) : 0; }
 
-async function search(query, { id, secret, legacy }) {
-  const url = `${legacy ? LEGACY : HUB}?query=${encodeURIComponent(query)}&display=40&sort=date`;
+export async function search(query, { id, secret, legacy }, { display = 40, start = 1 } = {}) {
+  const url = `${legacy ? LEGACY : HUB}?query=${encodeURIComponent(query)}&display=${display}&start=${start}&sort=date`;
   const headers = legacy ? { "X-Naver-Client-Id": id, "X-Naver-Client-Secret": secret } : { "X-NCP-APIGW-API-KEY-ID": id, "X-NCP-APIGW-API-KEY": secret };
   const r = await fetch(url, { headers });
   if (!r.ok) throw new Error(`naver ${r.status}: ${(await r.text()).slice(0, 200)}`);

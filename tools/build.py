@@ -18,6 +18,24 @@ os.makedirs(os.path.join(A, "fonts"))
 
 # 그림
 imgs = json.load(open(os.path.join(TOOLS, "imgs.json")))
+
+# 앱 아이콘(홈 화면에 추가할 때 쓰임): 굿모닝 이삭이를 연한 배경 위에
+import io
+from PIL import Image
+def icon(size, scale, name):
+    ch = Image.open(io.BytesIO(base64.b64decode(imgs["wave"].split(",", 1)[1]))).convert("RGBA")
+    bg = Image.new("RGBA", (size, size), (234, 241, 255, 255))
+    s_ = int(size * scale); r = min(s_ / ch.width, s_ / ch.height)
+    ch = ch.resize((max(1, int(ch.width * r)), max(1, int(ch.height * r))), Image.LANCZOS)
+    bg.alpha_composite(ch, ((size - ch.width) // 2, (size - ch.height) // 2 + int(size * 0.02)))
+    bg.convert("RGB").save(os.path.join(OUT, name), optimize=True)
+icon(192, 0.82, "icon-192.png"); icon(512, 0.82, "icon-512.png"); icon(512, 0.62, "icon-maskable.png"); icon(180, 0.8, "apple-touch-icon.png")
+json.dump({"name": "DAILY BRIEFING", "short_name": "데일리 브리핑", "description": "내 분야 뉴스를 한곳에 모아 보는 하루 브리핑",
+           "start_url": "/?src=home", "scope": "/", "display": "standalone", "background_color": "#F3F6FB", "theme_color": "#F3F6FB", "lang": "ko",
+           "icons": [{"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"}, {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
+                     {"src": "/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}]},
+          open(os.path.join(OUT, "manifest.webmanifest"), "w"), ensure_ascii=False)
+shutil.copy(os.path.join(SRC, "sw.js"), os.path.join(OUT, "sw.js"))
 paths = {}
 for key, uri in imgs.items():
     head, data = uri.split(",", 1)

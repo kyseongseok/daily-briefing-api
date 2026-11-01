@@ -157,6 +157,7 @@ async function refreshNews(app, btn, rerender, onNew) {
 /* 처음 열 때: 보관된 오늘 기사 → 바로 표시, 그 뒤 서버에서 최신으로 */
 async function bootNews(rerender) {
   loadCachedNews(); rerender();
+  fetchStats().then(rerender);
   try { applyNews(await fetchNews()); rerender(); } catch (e) { /* 서버 준비 전에는 예시 기사 유지 */ }
 }
 
@@ -578,34 +579,42 @@ function bindSync(app) {
 }
 const CREDIT = `<div class="credit">연구정책국 연구정책과<span>Kyeong-seok Kwon</span></div>`;
 
-/* ── 통계: 매일 오전 기사 수를 저장해 쌓는 방식. 쌓인 날만큼만 보여 준다 ── */
-S.statPeriod = 7; S.statsDays = 1; // 매일 기록은 5단계에서. 지금은 오늘 하루치만
+/* ── 통계: '농촌진흥청'이 들어간 기사만 센다 (/api/stats) ──
+   - 내 분야 검색어와 상관없이 모두 같은 기준
+   - 네이버에서 거슬러 받을 수 있는 날(최대 1,000건)은 바로 채우고, 그 전 기간은 매일 기록이 쌓이면서 채워짐(5단계) */
+const STAT_WORD = "농촌진흥청", STATS_KEY = "daily-briefing-stats";
+S.statPeriod = 7; S.rda = null;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const md = (d) => `${d.getMonth() + 1}월 ${d.getDate()}일`;
 const mdS = (d) => `${d.getMonth() + 1}.${d.getDate()}`;
-function seeded(n) { const x = Math.sin(n * 9301 + 49297) * 233280; return x - Math.floor(x); }
-const BASE = { agri: 8, sci: 5, it: 6, pol: 3, spo: 2 };
-function dayCounts(dayIdx) { // dayIdx: 0 = 오늘, 1 = 어제 …
-  if (dayIdx === 0 && S.live) return Object.fromEntries(S.cats.map((c) => [c.id, c.count]));
-  const d = addDays(TODAY, -dayIdx), wk = d.getDay() === 0 || d.getDay() === 6 ? 0.45 : 1;
-  const o = {}; S.cats.forEach((c, i) => { const b = BASE[c.id] ?? 2; o[c.id] = Math.max(0, Math.round(b * wk * (0.55 + seeded(dayIdx * 7 + i) * 0.95) + (c.id === "agri" && dayIdx === 3 ? 9 : 0))); }); return o;
+const dKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const fromKey = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+async function fetchStats() {
+  try { const c = JSON.parse(localStorage.getItem(STATS_KEY) || "null"); if (c && c.today === dKey(new Date()) && Date.now() - c.at < 30 * 60000) { S.rda = c; return; } } catch (e) {}
+  try {
+    const r = await fetch("/api/stats"); if (!r.ok) throw new Error(r.status);
+    S.rda = await r.json();
+    try { localStorage.setItem(STATS_KEY, JSON.stringify(S.rda)); } catch (e) {}
+  } catch (e) { S.rda = S.rda || { error: true }; }
 }
 function statsData() {
-  const P = S.statPeriod, have = Math.min(S.statsDays, P), weekly = P === 90;
-  const days = []; for (let i = P - 1; i >= 0; i--) days.push({ i, date: addDays(TODAY, -i), ok: i < S.statsDays, c: i < S.statsDays ? dayCounts(i) : null });
+  const P = S.statPeriod, weekly = P === 90, R = S.rda && S.rda.days ? S.rda : null;
+  const days = [];
+  for (let i = P - 1; i >= 0; i--) { const date = addDays(TODAY, -i), k = dKey(date), v = R && R.days[k]; days.push({ i, date, ok: !!v, today: i === 0, n: v ? v.n : 0, m: v ? v.m : {} }); }
   let slots = days;
-  if (weekly) { slots = []; for (let w = 0; w < 13; w++) { const part = days.slice(w * 7, w * 7 + 7); const okDays = part.filter((x) => x.ok); const c = {}; S.cats.forEach((k) => { c[k.id] = okDays.reduce((s, x) => s + x.c[k.id], 0); }); slots.push({ date: part[0].date, end: part[part.length - 1].date, ok: okDays.length > 0, partial: okDays.length > 0 && okDays.length < part.length, c: okDays.length ? c : null }); } }
-  const okDays = days.filter((x) => x.ok);
-  const byCat = S.cats.map((k) => ({ k, n: okDays.reduce((s, x) => s + x.c[k.id], 0) })).sort((a, b) => b.n - a.n);
-  const total = byCat.reduce((s, x) => s + x.n, 0);
+  if (weekly) { slots = []; for (let w = 0; w < 13; w++) { const part = days.slice(w * 7, w * 7 + 7), ok = part.filter((x) => x.ok); slots.push({ date: part[0].date, ok: ok.length > 0, partial: ok.length > 0 && ok.length < part.length, n: ok.reduce((s, x) => s + x.n, 0) }); } }
+  const okDays = days.filter((x) => x.ok), have = okDays.length;
+  const total = okDays.reduce((s, x) => s + x.n, 0);
+  const done = okDays.filter((x) => !x.today); // 하루 평균은 다 끝난 날만
+  const mc = {}; okDays.forEach((x) => Object.entries(x.m).forEach(([k, n]) => { mc[k] = (mc[k] || 0) + n; }));
   let prev = null;
-  if (S.statsDays >= P * 2) { prev = 0; for (let i = P; i < P * 2; i++) { const c = dayCounts(i); prev += Object.values(c).reduce((a, b) => a + b, 0); } }
-  return { P, have, weekly, slots, byCat, total, avg: have ? total / have : 0, prev };
+  if (R) { const pd = []; for (let i = P; i < P * 2; i++) pd.push(R.days[dKey(addDays(TODAY, -i))]); if (pd.every(Boolean)) prev = pd.reduce((s, v) => s + v.n, 0); }
+  const best = done.slice().sort((a, b) => b.n - a.n)[0];
+  return { P, have, weekly, slots, total, avg: done.length ? done.reduce((s, x) => s + x.n, 0) / done.length : 0, prev, media: Object.entries(mc).sort((a, b) => b[1] - a[1]).slice(0, 5), best };
 }
 function chartSVG(D, W) {
-  const H = 170, L = 30, R = 6, T = 10, B = 24, cw = W - L - R, ch = H - T - B, n = D.slots.length;
-  const sums = D.slots.map((s) => (s.c ? Object.values(s.c).reduce((a, b) => a + b, 0) : 0));
-  const max = Math.max(10, ...sums), step = Math.ceil(max / 3 / 5) * 5, top = step * 3;
+  const H = 170, L = 34, R = 6, T = 10, B = 24, cw = W - L - R, ch = H - T - B, n = D.slots.length;
+  const max = Math.max(10, ...D.slots.map((s) => s.n)), step = Math.ceil(max / 3 / 5) * 5, top = step * 3;
   const bw = cw / n, gap = Math.min(4, bw * 0.25);
   let g = "";
   for (let t = 0; t <= 3; t++) { const y = T + ch - (t * step / top) * ch; g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y + 4}" text-anchor="end" font-size="10" fill="var(--faint)">${t * step}</text>`; }
@@ -613,46 +622,39 @@ function chartSVG(D, W) {
   D.slots.forEach((s, i) => {
     const x = L + i * bw + gap / 2, w = bw - gap;
     if (!s.ok) { if (firstMissing < 0) firstMissing = i; lastMissing = i; g += `<rect x="${x}" y="${T + ch - 18}" width="${w}" height="18" rx="2" fill="url(#hatch)"/>`; return; }
-    let y = T + ch;
-    S.cats.forEach((k) => { const v = s.c[k.id] || 0; if (!v) return; const h = v / top * ch; y -= h; g += `<rect class="bar" style="animation-delay:${i * (D.weekly ? 50 : n > 7 ? 18 : 60)}ms" x="${x}" y="${y}" width="${w}" height="${h}" fill="${pal(k).c}"><title>${esc(k.name)} ${v}건</title></rect>`; });
+    const h = s.n / top * ch, y = T + ch - h;
+    g += `<rect class="bar" style="animation-delay:${i * (D.weekly ? 50 : n > 7 ? 18 : 60)}ms" x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="#1E8A4C"${s.today ? ' fill-opacity=".55"' : ""}><title>${md(s.date)} ${s.n}건${s.today ? " (오늘, 집계 중)" : ""}</title></rect>`;
+    if (n <= 7) g += `<text x="${x + w / 2}" y="${y - 4}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--sub)">${s.n}</text>`;
     if (s.partial) g += `<text x="${x + w / 2}" y="${y - 4}" text-anchor="middle" font-size="9" fill="var(--faint)">일부</text>`;
   });
   if (firstMissing >= 0) { const mx = L + ((firstMissing + lastMissing + 1) / 2) * bw; g += `<text x="${mx}" y="${T + ch - 26}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--faint)">수집 전 · 데이터 없음</text>`; }
   const labIdx = n <= 7 ? D.slots.map((_, i) => i) : [0, Math.floor(n / 2), n - 1];
   labIdx.forEach((i) => { const s = D.slots[i]; g += `<text x="${L + i * bw + bw / 2}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--faint)">${D.weekly ? mdS(s.date) + "주" : n <= 7 ? ["일", "월", "화", "수", "목", "금", "토"][s.date.getDay()] + " " + s.date.getDate() : mdS(s.date)}</text>`; });
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${D.weekly ? "주별" : "일별"} 기사 수, 분야별 누적"><defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--line2)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--line)" stroke-width="3"/></pattern></defs>${g}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${D.weekly ? "주별" : "일별"} '${STAT_WORD}' 기사 수"><defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--line2)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--line)" stroke-width="3"/></pattern></defs>${g}</svg>`;
 }
 function statsHTML(wide) {
-  const D = statsData(), start = addDays(TODAY, -(S.statsDays - 1));
   const per = [[7, "최근 1주"], [30, "최근 1개월"], [90, "최근 3개월"]];
-  const full = S.statsDays >= 90;
-  const collect = full
-    ? `<div class="st-note small">${md(start)}부터 매일 오전 6시에 기사 수를 저장해요 · 오늘까지 ${S.statsDays}일치</div>`
-    : `<section class="st-info"><b>통계는 하루씩 쌓이는 중이에요</b><p>네이버 검색은 지난 기간의 기사 수를 알려 주지 않아서, DAILY BRIEFING이 ${md(start)}부터 매일 기사 수를 저장하고 있어요. 그래서 아직 쌓이지 않은 기간은 빗금으로 비어 보여요. 고장이 아니에요.</p>
-       <div class="st-prog">${per.map(([p, nm]) => { const h = Math.min(S.statsDays, p), done = h >= p; return `<div><span>${nm}</span><i><em style="width:${h / p * 100}%"></em></i><small>${done ? "완성" : `${h}/${p}일 · ${md(addDays(start, p - 1))} 완성`}</small></div>`; }).join("")}</div></section>`;
+  const tabs = `<div class="st-per" role="tablist">${per.map(([p, nm]) => `<button type="button" role="tab" data-period="${p}" aria-selected="${S.statPeriod === p}">${nm}</button>`).join("")}</div>`;
+  const head = `<section class="st-info"><b>'${STAT_WORD}'이 들어간 기사 통계</b><p>내 분야 검색어와 상관없이, 기사 제목이나 내용에 '${STAT_WORD}'이 들어간 기사만 세요. 모든 사람이 같은 숫자를 봐요.</p></section>`;
+  if (!S.rda) return `<div class="st${wide ? " st-wide" : ""}">${tabs}${head}<div class="st-note">통계를 불러오는 중이에요…</div></div>`;
+  if (S.rda.error) return `<div class="st${wide ? " st-wide" : ""}">${tabs}${head}<div class="st-warn">통계를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.</div></div>`;
+  const D = statsData(), from = fromKey(S.rda.from);
   const chg = D.prev ? Math.round((D.total - D.prev) / D.prev * 100) : null;
-  const partialNote = D.have < D.P ? `<div class="st-warn">이 기간은 아직 ${D.have}일치만 모였어요 (${D.P}일 중). 합계와 평균은 모인 날만 계산해요.</div>` : "";
-  // 매체·이슈 순위는 지금 받은 기사 기준 (날짜별 기록은 5단계에서)
-  const mc = {}; S.arts.forEach((a) => { [a.src, ...(a.rel || []).map((r) => r[0])].forEach((m) => { mc[m] = (mc[m] || 0) + 1; }); });
-  const media = Object.entries(mc).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const issues = S.arts.filter((a) => a.media > 1).sort((a, b) => b.media - a.media).slice(0, 3).map((a) => [a.title, a.media, a.cat]);
+  const partialNote = D.have < D.P ? `<div class="st-warn">${md(from)}부터 기사 수가 모여 있어요 (${D.P}일 중 ${D.have}일). 빗금 칸은 아직 모이지 않은 날이고, 앞으로 매일 채워져요.</div>` : "";
+  const issues = S.rda.issues || [];
   return `<div class="st${wide ? " st-wide" : ""}">
-    <div class="st-per" role="tablist">${per.map(([p, nm]) => `<button type="button" role="tab" data-period="${p}" aria-selected="${S.statPeriod === p}">${nm}</button>`).join("")}</div>
-    ${collect}${partialNote}
+    ${tabs}${head}${partialNote}
     <div class="st-tiles">
       <div><small>기사 수</small><b>${D.total.toLocaleString()}<span>건</span></b></div>
-      <div><small>하루 평균</small><b>${D.avg.toFixed(1)}<span>건</span></b></div>
+      <div><small>하루 평균</small><b>${D.avg.toFixed(1)}<span>건</span></b>${D.best ? `<em>가장 많은 날 ${md(D.best.date)} ${D.best.n}건</em>` : ""}</div>
       <div><small>이전 기간 대비</small>${chg === null ? `<b class="na">비교 전</b><em>이전 ${D.P}일 데이터가 아직 없어요</em>` : `<b class="${chg >= 0 ? "up" : "down"}">${chg >= 0 ? "+" : ""}${chg}<span>%</span></b>`}</div>
     </div>
-    <section class="st-card"><h3>${D.weekly ? "주별" : "일별"} 기사 수 <small>분야별로 쌓은 막대</small></h3>${chartSVG(D, wide ? 1120 : 340)}
-      <div class="st-leg">${S.cats.map((k) => `<span><i style="background:${pal(k).c}"></i>${esc(k.name)}</span>`).join("")}</div></section>
+    <section class="st-card"><h3>${D.weekly ? "주별" : "일별"} 기사 수 <small>오늘은 집계 중이라 연하게 표시</small></h3>${chartSVG(D, wide ? 1120 : 340)}</section>
     <div class="st-cols">
-    <section class="st-card"><h3>분야별 합계</h3>${D.byCat.map(({ k, n }) => `<div class="st-bar"><span>${esc(k.name)}</span><i><em style="width:${D.byCat[0].n ? n / D.byCat[0].n * 100 : 0}%;background:${pal(k).c}"></em></i><b>${n}</b></div>`).join("")}
-      ${S.cats.some((k) => k.user) ? `<div class="st-note small">새로 추가한 분야는 추가한 날부터 집계돼요.</div>` : ""}</section>
-    <section class="st-card"><h3>많이 다룬 매체 <small>상위 5</small></h3>${media.length ? media.map(([m, n], i) => `<div class="st-rank"><em>${i + 1}</em><span>${esc(m)}</span><b>${n}건</b></div>`).join("") : `<div class="st-note small">기사를 불러오면 보여요</div>`}</section>
-    <section class="st-card"><h3>많이 보도된 이슈 <small>여러 매체가 함께 다룬 소식</small></h3>${issues.length ? issues.map(([t, n, c], i) => `<div class="st-rank"><em>${i + 1}</em><span>${esc(t)}</span><b>${n}개 매체</b></div>`).join("") : `<div class="st-note small">여러 매체가 함께 다룬 소식이 아직 없어요</div>`}</section>
+    <section class="st-card"><h3>많이 다룬 매체 <small>이 기간 상위 5</small></h3>${D.media.length ? D.media.map(([m, n], i) => `<div class="st-bar"><span>${i + 1}. ${esc(m)}</span><i><em style="width:${n / D.media[0][1] * 100}%;background:#1E8A4C"></em></i><b>${n}</b></div>`).join("") : `<div class="st-note small">아직 기사가 없어요</div>`}</section>
+    <section class="st-card"><h3>오늘 많이 보도된 소식 <small>여러 매체가 함께 다룬 기사</small></h3>${issues.length ? issues.map(([t, n, link], i) => `<a class="st-rank" href="${esc(link)}" target="_blank" rel="noopener"><em>${i + 1}</em><span>${esc(t)}</span><b>${n}개 매체</b></a>`).join("") : `<div class="st-note small">여러 매체가 함께 다룬 소식이 아직 없어요</div>`}</section>
     </div>
-    <div class="st-note small">기사 수는 내 분야 검색어로 찾은 기사 기준이에요. 같은 소식을 여러 매체가 쓰면 각각 셉니다.</div>
+    <div class="st-note small">네이버 뉴스 검색 기준 · 30분마다 갱신 · 같은 소식을 여러 매체가 쓰면 각각 셉니다.</div>
   </div>`;
 }
 function bindStats(app, rerender) {
@@ -763,7 +765,7 @@ function startTour(app, goTab, rerender) {
     draft.forEach((d) => { const c = cat(d.id); if (c && c.words.join() !== d.words.join()) { c.words = d.words; changed = true; } });
     el.remove(); savePrefs(); goTab("today");
     if (changed) { rerender(); fetchNews().then((n) => { applyNews(n); rerender(); }).catch(() => {}); }
-    if (openAdd) openSheet(app, "add");
+    if (openAdd) openSheet(app, "add"); else if (S.afterTour) setTimeout(S.afterTour, 600);
   };
   const addWord = (inp) => { const v = inp.value.trim(); if (!v) return; const d = draft.find((x) => x.id === inp.dataset.twin); if (!d.words.includes(v)) d.words.push(v); draw(inp.id); };
   el.addEventListener("click", (e) => {
@@ -780,6 +782,57 @@ function startTour(app, goTab, rerender) {
   });
   el.addEventListener("keydown", (e) => {
     if (e.target.dataset.twin && e.key === "Enter" && !e.isComposing) { e.preventDefault(); addWord(e.target); }
+  });
+  draw();
+}
+
+/* ── 홈 화면에 추가 안내 (모바일) ──
+   - 안드로이드: 브라우저가 허락하면 바로 설치 창을 띄움, 안 되면 메뉴 위치를 안내
+   - 아이폰: 웹에서 직접 추가할 수 없어서 Safari 공유 버튼 순서를 그림으로 안내 */
+const A2HS_KEY = "daily-briefing-a2hs";
+let installEvt = null;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; });
+window.addEventListener("appinstalled", () => { try { localStorage.setItem(A2HS_KEY, "done"); } catch (e) {} });
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("/sw.js").catch(() => {});
+const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const UA = navigator.userAgent;
+const guessOS = () => (/iPhone|iPad|iPod/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1) ? "ios" : /Android/.test(UA) ? "android" : "");
+const inApp = () => /KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\//i.test(UA);
+function a2hsDue() {
+  if (isStandalone()) return false;
+  try { const v = localStorage.getItem(A2HS_KEY); if (v === "done") return false; if (v && Date.now() - +v < 7 * 864e5) return false; } catch (e) { return false; }
+  return true;
+}
+const SHARE_IC = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>`;
+function showA2HS(app) {
+  let os = guessOS();
+  const el = document.createElement("div"); el.className = "tour a2hs";
+  $$(".a2hs", app).forEach((n) => n.remove());
+  app.append(el);
+  const close = (later) => { try { localStorage.setItem(A2HS_KEY, later ? String(Date.now()) : "done"); } catch (e) {} el.remove(); };
+  const steps = () => {
+    if (os === "ios") return `${inApp() ? `<div class="a2-warn">지금은 앱 안 브라우저예요. 오른쪽 아래(또는 위) <b>⋯</b> 메뉴에서 <b>Safari로 열기</b>를 먼저 눌러 주세요.</div>` : ""}
+      <ol class="a2-steps"><li>화면 아래(아이패드는 위)의 <b class="a2-ic">${SHARE_IC} 공유</b> 버튼을 눌러요</li><li>목록을 올려 <b>홈 화면에 추가</b>를 눌러요</li><li>오른쪽 위 <b>추가</b>를 누르면 끝!</li></ol>`;
+    if (installEvt) return `<p class="a2-p">아래 버튼을 누르고 <b>설치</b>(또는 추가)를 고르면 홈 화면에 아이콘이 생겨요.</p><button type="button" class="tr-next a2-go" data-a2install>홈 화면에 추가하기</button>`;
+    return `${inApp() ? `<div class="a2-warn">지금은 앱 안 브라우저예요. 메뉴 <b>⋮</b>에서 <b>다른 브라우저로 열기</b>(Chrome)를 먼저 눌러 주세요.</div>` : ""}
+      <ol class="a2-steps"><li><b>Chrome</b>: 오른쪽 위 <b>⋮</b> 메뉴 → <b>홈 화면에 추가</b> → <b>설치</b>(또는 추가)</li><li><b>삼성 인터넷</b>: 아래 <b>≡</b> 메뉴 → <b>현재 페이지 추가</b> → <b>홈 화면</b></li></ol>`;
+  };
+  const draw = () => {
+    el.innerHTML = `<div class="tr-dim" data-a2later></div><section class="tr-card" role="dialog" aria-modal="true" aria-label="홈 화면에 추가">
+      <div class="tr-top"><img src="/icon-192.png" alt="" style="width:56px;height:56px;border-radius:14px"><div><h2 style="font-size:18px">홈 화면에 추가할까요?</h2><p style="font-size:13.5px">앱처럼 아이콘을 눌러 바로 열 수 있어요.</p></div></div>
+      <div class="pills a2-os" role="tablist"><button type="button" role="tab" data-a2os="ios" aria-pressed="${os === "ios"}">아이폰 (애플)</button><button type="button" role="tab" data-a2os="android" aria-pressed="${os === "android"}">안드로이드</button></div>
+      ${os ? steps() : `<p class="a2-p">쓰고 계신 휴대폰을 골라 주세요.</p>`}
+      <div class="tr-btns"><button type="button" class="tr-prev" style="flex:1" data-a2later>다음에 할게요</button>${os && !(os === "android" && installEvt) ? `<button type="button" class="tr-next" data-a2done>추가했어요</button>` : ""}</div></section>`;
+  };
+  el.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-a2os],[data-a2install],[data-a2later],[data-a2done]"); if (!b) return;
+    if (b.dataset.a2os) { os = b.dataset.a2os; draw(); return; }
+    if (b.dataset.a2later !== undefined) { close(true); return; }
+    if (b.dataset.a2done !== undefined) { close(false); toast(app, "홈 화면 아이콘으로 열어 보세요"); return; }
+    if (b.dataset.a2install !== undefined && installEvt) {
+      installEvt.prompt(); const { outcome } = await installEvt.userChoice; installEvt = null;
+      if (outcome === "accepted") { close(false); toast(app, "홈 화면에 추가했어요"); } else draw();
+    }
   });
   draw();
 }

@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       all.push(...items);
       if (items.length < 100) break;
     }
-    const seen = new Set(), days = {};
+    const seen = new Set(), days = {}, raw = {};
     let oldest = Infinity;
     for (const it of all) {
       const link = it.originallink || it.link; if (seen.has(link)) continue; seen.add(link);
@@ -27,11 +27,14 @@ export default async function handler(req, res) {
       oldest = Math.min(oldest, t);
       const k = dayKey(t), src = press(link);
       const d = (days[k] ||= { n: 0, m: {} }); d.n++; d.m[src] = (d.m[src] || 0) + 1;
+      (raw[k] ||= []).push(it);
     }
     const keys = Object.keys(days).sort();
     // 1,000건을 다 받았다면 가장 오래된 날은 일부만 셌으므로 뺀다
     const complete = all.length >= 1000 ? keys.slice(1) : keys;
-    const out = Object.fromEntries(complete.map((k) => [k, days[k]]));
+    // 날마다 기사 목록: 같은 소식은 묶고, 여러 매체가 다룬 소식부터 최대 80개 [제목, 대표 매체, 링크, 매체 수, 시각]
+    const listOf = (k) => group(raw[k] || [], [], Infinity).sort((a, b) => (b.media - a.media) || (b.t - a.t)).slice(0, 80).map((g) => [g.title, g.src, g.link, g.media, g.t]);
+    const out = Object.fromEntries(complete.map((k) => [k, { ...days[k], list: listOf(k) }]));
     const today = dayKey(Date.now());
     const issues = group(all.filter((it) => dayKey(Date.parse(it.pubDate) || 0) === today))
       .filter((g) => g.media > 1).sort((a, b) => b.media - a.media).slice(0, 5)

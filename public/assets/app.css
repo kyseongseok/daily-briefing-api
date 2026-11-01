@@ -560,3 +560,13 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .pills { display: flex; gap: 6px; padding-bottom: 10px; }
 .pills button { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: calc(13px * var(--s)); font-weight: 700; color: var(--sub); }
 .pills button[aria-pressed="true"] { background: var(--navy); color: var(--bg); border-color: var(--navy); }
+
+/* 통계: 막대 눌러서 그날 기사 보기 */
+.st-card svg .hit { cursor: pointer; outline: none; }
+.st-card svg .hit:hover, .st-card svg .hit:focus-visible { fill: rgba(52, 169, 138, .10); }
+.sd-list { display: flex; flex-direction: column; }
+.sd-it { display: flex; flex-direction: column; gap: 3px; padding: 11px 2px; border-top: 1px solid var(--line2); color: inherit; text-decoration: none; }
+.sd-it:first-child { border-top: none; }
+.sd-t { font-size: calc(14.5px * var(--s)); font-weight: 650; line-height: 1.45; }
+.sd-m { font-size: calc(12px * var(--s)); color: var(--faint); }
+.sd-m b { color: #1F7F66; font-weight: 700; }

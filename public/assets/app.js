@@ -262,7 +262,7 @@ function renderSheet(app) {
   const dim = document.createElement("div"); dim.className = "dim"; dim.dataset.close = "";
   const sh = document.createElement("section"); sh.className = "sheet"; sh.setAttribute("role", "dialog"); sh.setAttribute("aria-modal", "true");
   const k = S.sheet.kind;
-  sh.innerHTML = k === "share" ? shareSheet(S.sheet.arg) : k === "dex" ? dexSheet(S.sheet.arg) : k.startsWith("team") || k === "invite" ? teamSheet(k, S.sheet.arg) : k.startsWith("sync") ? syncSheet(k) : addSheet();
+  sh.innerHTML = k === "share" ? shareSheet(S.sheet.arg) : k === "dex" ? dexSheet(S.sheet.arg) : k.startsWith("team") || k === "invite" ? teamSheet(k, S.sheet.arg) : k.startsWith("sync") ? syncSheet(k) : k === "statDay" ? statDaySheet(S.sheet.arg) : addSheet();
   const keep = S.sheet.scroll || 0; requestAnimationFrame(() => { sh.scrollTop = keep; });
   app.append(dim, sh);
 }
@@ -864,7 +864,7 @@ const CREDIT = `<div class="credit">연구정책국 연구정책과<span>Kyeong-
 /* ── 통계: '농촌진흥청'이 들어간 기사만 센다 (/api/stats) ──
    - 내 분야 검색어와 상관없이 모두 같은 기준
    - 네이버에서 거슬러 받을 수 있는 날(최대 1,000건)은 바로 채우고, 그 전 기간은 매일 기록이 쌓이면서 채워짐(5단계) */
-const STAT_WORD = "농촌진흥청", STATS_KEY = "daily-briefing-stats";
+const STAT_WORD = "농촌진흥청", STATS_KEY = "daily-briefing-stats-v2";
 S.statPeriod = 7; S.rda = null;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const md = (d) => `${d.getMonth() + 1}월 ${d.getDate()}일`;
@@ -905,8 +905,9 @@ function chartSVG(D, W) {
     const x = L + i * bw + gap / 2, w = bw - gap;
     if (!s.ok) { if (firstMissing < 0) firstMissing = i; lastMissing = i; g += `<rect x="${x}" y="${T + ch - 18}" width="${w}" height="18" rx="2" fill="url(#hatch)"/>`; return; }
     const h = s.n / top * ch, y = T + ch - h;
-    g += `<rect class="bar" style="animation-delay:${i * (D.weekly ? 50 : n > 7 ? 18 : 60)}ms" x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="#1E8A4C"${s.today ? ' fill-opacity=".55"' : ""}><title>${md(s.date)} ${s.n}건${s.today ? " (오늘, 집계 중)" : ""}</title></rect>`;
+    g += `<rect class="bar" style="animation-delay:${i * (D.weekly ? 50 : n > 7 ? 18 : 60)}ms" x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="#34A98A"${s.today ? ' fill-opacity=".55"' : ""}><title>${md(s.date)} ${s.n}건${s.today ? " (오늘, 집계 중)" : ""}</title></rect>`;
     if (n <= 7) g += `<text x="${x + w / 2}" y="${y - 4}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--sub)">${s.n}</text>`;
+    if (!D.weekly) g += `<rect class="hit" data-sday="${dKey(s.date)}" x="${L + i * bw}" y="${T}" width="${bw}" height="${ch}" fill="transparent" tabindex="0" role="button" aria-label="${md(s.date)} 기사 ${s.n}건 보기"><title>${md(s.date)} ${s.n}건 · 눌러서 기사 보기</title></rect>`;
     if (s.partial) g += `<text x="${x + w / 2}" y="${y - 4}" text-anchor="middle" font-size="9" fill="var(--faint)">일부</text>`;
   });
   if (firstMissing >= 0) { const mx = L + ((firstMissing + lastMissing + 1) / 2) * bw; g += `<text x="${mx}" y="${T + ch - 26}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--faint)">수집 전 · 데이터 없음</text>`; }
@@ -931,15 +932,26 @@ function statsHTML(wide) {
       <div><small>하루 평균</small><b>${D.avg.toFixed(1)}<span>건</span></b>${D.best ? `<em>가장 많은 날 ${md(D.best.date)} ${D.best.n}건</em>` : ""}</div>
       <div><small>이전 기간 대비</small>${chg === null ? `<b class="na">비교 전</b><em>이전 ${D.P}일 데이터가 아직 없어요</em>` : `<b class="${chg >= 0 ? "up" : "down"}">${chg >= 0 ? "+" : ""}${chg}<span>%</span></b>`}</div>
     </div>
-    <section class="st-card"><h3>${D.weekly ? "주별" : "일별"} 기사 수 <small>오늘은 집계 중이라 연하게 표시</small></h3>${chartSVG(D, wide ? 1120 : 340)}</section>
+    <section class="st-card"><h3>${D.weekly ? "주별" : "일별"} 기사 수 <small>${D.weekly ? "오늘은 집계 중이라 연하게 표시" : "막대를 누르면 그날 기사를 볼 수 있어요"}</small></h3>${chartSVG(D, wide ? 1120 : 340)}</section>
     <div class="st-cols">
-    <section class="st-card"><h3>많이 다룬 매체 <small>이 기간 상위 5</small></h3>${D.media.length ? D.media.map(([m, n], i) => `<div class="st-bar"><span>${i + 1}. ${esc(m)}</span><i><em style="width:${n / D.media[0][1] * 100}%;background:#1E8A4C"></em></i><b>${n}</b></div>`).join("") : `<div class="st-note small">아직 기사가 없어요</div>`}</section>
+    <section class="st-card"><h3>많이 다룬 매체 <small>이 기간 상위 5</small></h3>${D.media.length ? D.media.map(([m, n], i) => `<div class="st-bar"><span>${i + 1}. ${esc(m)}</span><i><em style="width:${n / D.media[0][1] * 100}%;background:#34A98A"></em></i><b>${n}</b></div>`).join("") : `<div class="st-note small">아직 기사가 없어요</div>`}</section>
     <section class="st-card"><h3>오늘 많이 보도된 소식 <small>여러 매체가 함께 다룬 기사</small></h3>${issues.length ? issues.map(([t, n, link], i) => `<a class="st-rank" href="${esc(link)}" target="_blank" rel="noopener"><em>${i + 1}</em><span>${esc(t)}</span><b>${n}개 매체</b></a>`).join("") : `<div class="st-note small">여러 매체가 함께 다룬 소식이 아직 없어요</div>`}</section>
     </div>
     <div class="st-note small">네이버 뉴스 검색 기준 · 30분마다 갱신 · 같은 소식을 여러 매체가 쓰면 각각 셉니다.</div>
   </div>`;
 }
+function statDaySheet(k) {
+  const v = S.rda && S.rda.days && S.rda.days[k]; const d = fromKey(k);
+  const head = `<div class="grab"></div><div class="sh-head"><h2>${md(d)} '${STAT_WORD}' 기사</h2><button type="button" class="x" data-close>닫기</button></div>`;
+  if (!v) return head + `<div class="st-note">이날 기사 목록이 없어요.</div>`;
+  const list = v.list || [];
+  return head + `<p class="tm-p">모두 <b>${v.n}건</b>${k === dKey(new Date()) ? " (오늘, 집계 중)" : ""} · 같은 소식은 묶어서 여러 매체가 다룬 순으로 보여 줘요${list.length >= 80 ? " (상위 80개 소식)" : ""}.</p>
+    <div class="sd-list">${list.map(([t, src, link, media, at]) => `<a class="sd-it" href="${esc(link)}" target="_blank" rel="noopener"><span class="sd-t">${esc(t)}</span><span class="sd-m">${esc(src)}${media > 1 ? ` · <b>${media}개 매체</b>` : ""} · ${new Date(at).getHours()}시</span></a>`).join("") || `<div class="st-note">목록을 불러오지 못했어요. 새로고침 후 다시 열어 주세요.</div>`}</div>`;
+}
 function bindStats(app, rerender) {
+  const openDay = (el) => { S.sheet = { kind: "statDay", arg: el.dataset.sday }; renderSheet(app); };
+  app.addEventListener("click", (e) => { const h = e.target.closest("[data-sday]"); if (h && app.contains(h)) openDay(h); });
+  app.addEventListener("keydown", (e) => { const h = e.target.closest && e.target.closest("[data-sday]"); if (h && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openDay(h); } });
   app.addEventListener("click", (e) => { const t = e.target.closest("button"); if (!t || !app.contains(t)) return; if (t.dataset.period) { S.statPeriod = +t.dataset.period; rerender(); } });
 }
 

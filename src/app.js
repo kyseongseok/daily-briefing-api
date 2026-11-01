@@ -112,8 +112,8 @@ function ago(t) {
 function applyNews(byCat) {
   const arts = [];
   S.cats.forEach((c) => (byCat[c.id] || []).forEach((g) => { if (!arts.some((a) => a.id === g.id)) arts.push({ ...g, cat: c.id, time: ago(g.t), relCount: g.media > 1 ? g.media - 1 : (g.rel || []).length }); }));
-  // 오늘 꼭 볼 기사: 여러 매체가 다룬 소식 순, 같으면 최신 순. 1위는 크게(요약·관련 기사), 2~5위는 번호 목록
-  const ranked = arts.slice().sort((a, b) => (b.media - a.media) || (b.t - a.t));
+  // 오늘 꼭 볼 기사: 여러 매체가 다룬 소식 순, 같으면 주요 언론사 기사 먼저, 그다음 최신 순. 1위는 크게(요약·관련 기사), 2~5위는 번호 목록
+  const ranked = arts.slice().sort((a, b) => (b.media - a.media) || ((a.tier || 3) - (b.tier || 3)) || (b.t - a.t));
   ranked.slice(0, 5).forEach((a, i) => { if (i === 0) a.top = true; else a.pick = i + 1; });
   S.arts = arts;
   S.cats.forEach((c) => { c.count = artsOf(c.id).length; });

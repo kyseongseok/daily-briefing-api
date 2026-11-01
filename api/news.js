@@ -74,7 +74,7 @@ export function group(items, ex = [], dayMs = 36 * 3600 * 1000, now = Date.now()
     const all = [first, ...rest].sort((a, b) => tier(a.src) - tier(b.src) || a.t - b.t);
     const head = all[0], more = all.slice(1);
     const srcs = new Set(all.map((m) => m.src));
-    return { id: head.id, title: head.title, sum: head.desc, link: head.link, src: head.src, t: Math.max(...all.map((m) => m.t)),
+    return { id: head.id, title: head.title, sum: head.desc, link: head.link, src: head.src, tier: tier(head.src), t: Math.max(...all.map((m) => m.t)),
       media: srcs.size > 1 ? srcs.size : 0, rel: more.slice(0, 5).map((m) => [m.src, m.title, m.link]) };
   });
 }

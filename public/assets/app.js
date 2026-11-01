@@ -212,15 +212,25 @@ function shareSheet(id) {
     </div>
     <div class="copybox"><b>메신저용 복사 — 네이버웍스 등 어디든 붙여넣기</b><pre id="copytext">${esc(text)}</pre></div>`;
 }
+const KW_MAX = 10; // 분야마다 검색어 최대 개수 (검색어 하나당 네이버 검색 1번)
+function pushWord(list, v, app) {
+  // 쉼표로 여러 개를 한 번에 넣어도 하나씩 나눠서 넣음
+  const parts = v.split(/[,，、]/).map((x) => x.trim()).filter(Boolean);
+  if (parts.length > 1) return parts.map((x) => pushWord(list, x, app)).some(Boolean);
+  v = v.trim(); if (!v) return false;
+  if (list.includes(v)) { toast(app, "이미 있는 말이에요"); return false; }
+  if (list.length >= KW_MAX) { toast(app, `분야마다 ${KW_MAX}개까지 넣을 수 있어요`); return false; }
+  list.push(v); return true;
+}
 function addSheet() {
   const d = S.draft, editing = !!d.id, used = new Set(S.cats.filter((c) => c.id !== d.id).map((c) => c.p));
   const p = PALETTE[d.p];
   return `<div class="grab"></div><div class="sh-head"><h2>${editing ? "분야 수정" : "분야 추가"}</h2><button type="button" class="x" data-close>취소</button></div>
     <label class="lbl" for="f-name">분야 이름</label>
     <input class="fld" id="f-name" value="${esc(d.name)}" placeholder="예: 스마트팜, 반려동물" autocomplete="off">
-    <div style="display:flex;flex-direction:column;gap:8px"><span class="lbl">검색어 <small>· 하나라도 들어간 기사를 모아요</small></span>
-      <div class="kws">${d.words.map((w, i) => `<button type="button" class="kw" data-delkw="${i}" aria-label="${esc(w)} 지우기">${esc(w)} <span style="opacity:.6">×</span></button>`).join("")}<input class="kw-in" id="f-kw" placeholder="+ 검색어 입력 후 Enter" autocomplete="off"></div>
-      <div class="kws"><span class="lbl" style="font-weight:500">빼는 말</span>${d.ex.map((w, i) => `<button type="button" class="kw ex" data-delex="${i}">${esc(w)} ×</button>`).join("")}<input class="kw-in" id="f-ex" placeholder="+ 빼는 말" autocomplete="off"></div></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span class="lbl">검색어 <small>· 하나라도 들어간 기사를 모아요 (${d.words.length}/${KW_MAX})</small></span>
+      <div class="kws">${d.words.map((w, i) => `<button type="button" class="kw" data-delkw="${i}" aria-label="${esc(w)} 지우기">${esc(w)} <span style="opacity:.6">×</span></button>`).join("")}${d.words.length < KW_MAX ? `<form class="kwf" data-kwf><input class="kw-in" id="f-kw" placeholder="+ 검색어" enterkeyhint="done" autocomplete="off"><button type="submit" class="kw-add">추가</button></form>` : `<span class="kw-max">검색어는 ${KW_MAX}개까지예요</span>`}</div>
+      <div class="kws"><span class="lbl" style="font-weight:500">빼는 말</span>${d.ex.map((w, i) => `<button type="button" class="kw ex" data-delex="${i}">${esc(w)} ×</button>`).join("")}<form class="kwf" data-kwf><input class="kw-in" id="f-ex" placeholder="+ 빼는 말" enterkeyhint="done" autocomplete="off"><button type="submit" class="kw-add">추가</button></form></div></div>
     <div style="display:flex;flex-direction:column;gap:8px"><span class="lbl">분야 색 <small>· 이미 쓰는 색은 고를 수 없어요</small></span>
       <div class="sw">${PALETTE.map((q, i) => `<button type="button" style="--c:${q.c}" data-pick="${i}" aria-pressed="${i === d.p}" aria-label="${q.nm}${used.has(i) ? " (사용 중)" : ""}" ${used.has(i) ? "disabled" : ""}>${i === d.p ? ICON.check : ""}</button>`).join("")}</div></div>
     <div style="display:flex;flex-direction:column;gap:6px"><span class="lbl">미리 보기</span>
@@ -307,6 +317,9 @@ function bindCommon(app, rerender) {
     if (t.dataset.delex) { S.draft.ex.splice(+t.dataset.delex, 1); renderSheet(app); return; }
     if (t.dataset.addcat !== undefined) {
       const d = S.draft;
+      const pk = $("#f-kw", app), pe = $("#f-ex", app);
+      if (pk && pk.value.trim()) pushWord(d.words, pk.value, app);
+      if (pe && pe.value.trim()) pushWord(d.ex, pe.value, app);
       if (d.id) { Object.assign(cat(d.id), { name: d.name.trim(), p: d.p, words: d.words.slice(), ex: d.ex.slice() }); toast(app, `'${d.name.trim()}' 분야를 저장했어요 · 다음 새로고침부터 반영`); }
       else { S.cats.push({ id: "u" + Date.now(), name: d.name.trim(), p: d.p, count: 0, words: d.words.slice(), ex: d.ex.slice(), user: true }); toast(app, `'${d.name.trim()}' 분야를 추가했어요`); }
       savePrefs(); closeSheet(app); rerender(); if (S.live) fetchNews().then((n) => { applyNews(n); rerender(); }).catch(() => {}); return;
@@ -322,13 +335,17 @@ function bindCommon(app, rerender) {
     if (t.dataset.addopen !== undefined) { openSheet(app, "add"); return; }
   });
   app.addEventListener("input", (e) => {
+    if (e.target.id === "f-kw" && S.draft) { const b = $("[data-addcat]", app); if (b) b.disabled = !(S.draft.name.trim() && (S.draft.words.length || e.target.value.trim())); }
     if (e.target.id === "f-name" && S.draft) { S.draft.name = e.target.value; const pos = e.target.selectionStart; const prev = $(".sheet .sec", app); if (prev) prev.outerHTML = secPreview({ name: S.draft.name || "새 분야", p: S.draft.p }); $("[data-addcat]", app).disabled = !(S.draft.name.trim() && S.draft.words.length); e.target.setSelectionRange(pos, pos); }
   });
+  // 검색어 넣기: 키보드 완료(Enter)나 '추가' 버튼 모두 form 제출로 받음 (한글 입력 중 Enter가 무시되는 휴대폰 키보드 대응)
+  app.addEventListener("submit", (e) => {
+    const f = e.target.closest("[data-kwf]"); if (!f || !S.draft) return;
+    e.preventDefault();
+    const inp = $("input", f); const fid = inp.id;
+    if (pushWord(fid === "f-kw" ? S.draft.words : S.draft.ex, inp.value, app)) { renderSheet(app); const n = $("#" + fid, app); if (n) n.focus(); }
+  });
   app.addEventListener("keydown", (e) => {
-    if ((e.target.id === "f-kw" || e.target.id === "f-ex") && e.key === "Enter" && !e.isComposing) {
-      e.preventDefault(); const v = e.target.value.trim(); if (!v) return;
-      (e.target.id === "f-kw" ? S.draft.words : S.draft.ex).push(v); const fid = e.target.id; renderSheet(app); $("#" + fid, app).focus();
-    }
     if (e.key === "Escape" && S.sheet) closeSheet(app);
   });
 }
@@ -533,6 +550,7 @@ function bindTeams(app, rerender, onTeam) {
     }
   });
   app.addEventListener("input", (e) => {
+    if (e.target.id === "f-kw" && S.draft) { const b = $("[data-addcat]", app); if (b) b.disabled = !(S.draft.name.trim() && (S.draft.words.length || e.target.value.trim())); }
     if (e.target.id === "f-team") { S.draftTeam = e.target.value; $("[data-teamcreate]", app).disabled = !S.draftTeam.trim(); }
     if (e.target.id === "f-code") { S.draftCode = e.target.value; $("[data-dojoin]", app).disabled = !/^TEAM-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(S.draftCode.trim()); }
   });
@@ -751,7 +769,7 @@ function startTour(app, goTab, rerender) {
     const st = TOUR[i];
     goTab(st.tab);
     const setup = st.setup ? `<div class="tr-cats">${S.cats.map((c) => { const d = draft.find((x) => x.id === c.id); return `<div class="tr-cat" style="${cvars(c)}"><div class="tr-nm"><i></i>${esc(c.name)}</div>
-        <div class="kws">${d.words.map((w, k) => `<button type="button" class="kw" data-twdel="${c.id}:${k}" aria-label="${esc(w)} 지우기">${esc(w)} <span style="opacity:.6">×</span></button>`).join("")}<input class="kw-in" data-twin="${c.id}" id="tw-${c.id}" placeholder="+ 검색어 추가" enterkeyhint="done" autocomplete="off"></div></div>`; }).join("")}
+        <div class="kws">${d.words.map((w, k) => `<button type="button" class="kw" data-twdel="${c.id}:${k}" aria-label="${esc(w)} 지우기">${esc(w)} <span style="opacity:.6">×</span></button>`).join("")}<form class="kwf" data-twf><input class="kw-in" data-twin="${c.id}" id="tw-${c.id}" placeholder="+ 검색어" enterkeyhint="done" autocomplete="off"><button type="submit" class="kw-add">추가</button></form></div></div>`; }).join("")}
         <button type="button" class="tr-add" data-tadd>+ 새 분야 만들기</button></div>` : "";
     el.innerHTML = `<div class="tr-dim"></div><section class="tr-card${focusId ? " still" : ""}" role="dialog" aria-modal="true" aria-label="사용 안내 ${i + 1} / ${TOUR.length}">
       <div class="tr-top">${IMG[st.img] ? `<img src="${IMG[st.img]}" alt="">` : ""}<div class="tr-dots" aria-hidden="true">${TOUR.map((_, k) => `<i${k === i ? ' class="on"' : ""}></i>`).join("")}</div>${st.setup ? "" : `<button type="button" class="tr-skip" data-tskip>건너뛰기</button>`}</div>
@@ -767,11 +785,11 @@ function startTour(app, goTab, rerender) {
     if (changed) { rerender(); fetchNews().then((n) => { applyNews(n); rerender(); }).catch(() => {}); }
     if (openAdd) openSheet(app, "add"); else if (S.afterTour) setTimeout(S.afterTour, 600);
   };
-  const addWord = (inp) => { const v = inp.value.trim(); if (!v) return; const d = draft.find((x) => x.id === inp.dataset.twin); if (!d.words.includes(v)) d.words.push(v); draw(inp.id); };
+  const addWord = (inp) => { const d = draft.find((x) => x.id === inp.dataset.twin); if (pushWord(d.words, inp.value, app)) draw(inp.id); };
   el.addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
     if (b.dataset.tnext !== undefined) {
-      if (TOUR[i].setup) { const pend = $$(".kw-in", el).filter((x) => x.value.trim()); pend.forEach((x) => { const d = draft.find((y) => y.id === x.dataset.twin); const v = x.value.trim(); if (!d.words.includes(v)) d.words.push(v); }); finish(false); }
+      if (TOUR[i].setup) { const pend = $$(".kw-in", el).filter((x) => x.value.trim()); pend.forEach((x) => pushWord(draft.find((y) => y.id === x.dataset.twin).words, x.value, app)); finish(false); }
       else { i++; draw(); }
       return;
     }
@@ -780,9 +798,7 @@ function startTour(app, goTab, rerender) {
     if (b.dataset.tadd !== undefined) { finish(true); return; }
     if (b.dataset.twdel) { const [id, k] = b.dataset.twdel.split(":"); draft.find((x) => x.id === id).words.splice(+k, 1); draw("tw-" + id); return; }
   });
-  el.addEventListener("keydown", (e) => {
-    if (e.target.dataset.twin && e.key === "Enter" && !e.isComposing) { e.preventDefault(); addWord(e.target); }
-  });
+  el.addEventListener("submit", (e) => { const f = e.target.closest("[data-twf]"); if (!f) return; e.preventDefault(); e.stopPropagation(); addWord($("input", f)); });
   draw();
 }
 

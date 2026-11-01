@@ -520,3 +520,10 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .a2hs .a2-go { height: 50px; border-radius: 14px; font-size: 15px; font-weight: 800; }
 .st-rank { color: inherit; text-decoration: none; }
 .st-bar span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 검색어 입력칸 + 추가 버튼 */
+.kwf { flex: 1 1 150px; min-width: 0; display: flex; align-items: center; gap: 6px; margin: 0; }
+.kwf .kw-in { flex: 1 1 auto; }
+.kw-add { flex: none; height: 32px; padding: 0 12px; border-radius: 999px; border: none; background: #2457E6; color: #fff; font-size: calc(13px * var(--s)); font-weight: 700; }
+.app[data-mode="jogan"] .kw-add { border-radius: 0; background: var(--ink); }
+.kw-max { font-size: calc(12.5px * var(--s)); color: var(--faint); }

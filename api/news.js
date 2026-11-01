@@ -1,5 +1,5 @@
 // 네이버 뉴스 검색을 대신 불러오는 서버 기능 (Vercel)
-// GET /api/news?q=검색어1,검색어2&ex=빼는말1,빼는말2
+// GET /api/news?q=검색어1,검색어2&ex=빼는말1,빼는말2  (검색어 최대 10개, 빼는 말 최대 10개)
 // - 키는 Vercel 환경변수 NAVER_CLIENT_ID, NAVER_CLIENT_SECRET 에만 둔다 (코드·브라우저에 노출하지 않음)
 // - 기본은 NAVER API HUB 방식. 예전 개발자센터 키를 쓸 때만 NAVER_API_MODE=legacy
 // - 같은 소식을 다룬 기사는 하나로 묶고 매체 수(media)와 관련 기사(rel)를 붙여 돌려준다
@@ -71,7 +71,7 @@ export function group(items, ex = [], dayMs = 36 * 3600 * 1000, now = Date.now()
 export default async function handler(req, res) {
   const id = process.env.NAVER_CLIENT_ID, secret = process.env.NAVER_CLIENT_SECRET;
   if (!id || !secret) return res.status(500).json({ error: "NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 환경변수가 없어요" });
-  const q = String(req.query.q || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 6);
+  const q = String(req.query.q || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10);
   const ex = String(req.query.ex || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10);
   if (!q.length) return res.status(400).json({ error: "검색어(q)가 필요해요" });
   try {

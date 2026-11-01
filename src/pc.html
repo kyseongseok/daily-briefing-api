@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script>
 // 폭 900px 미만(휴대폰, 펼친 폴드 세로)은 휴대폰 화면으로. 폴드를 접거나 돌려도 따라 바뀜
-{ const narrow = matchMedia("(max-width: 899px)"); if (narrow.matches) location.replace("index.html" + location.hash); narrow.addEventListener("change", (e) => { if (e.matches) location.replace("index.html" + location.hash); }); }
+{ const narrow = matchMedia("(max-width: 899px), (max-height: 559px)"); if (narrow.matches) location.replace("index.html" + location.hash); narrow.addEventListener("change", (e) => { if (e.matches) location.replace("index.html" + location.hash); }); }
 </script>
 <link rel="stylesheet" href="assets/app.css">
 <style>

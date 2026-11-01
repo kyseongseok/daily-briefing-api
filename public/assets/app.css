@@ -532,3 +532,4 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .it .ibs { display: flex; flex-direction: column; align-items: center; gap: 0; flex: none; margin-right: -6px; }
 .it .ibs .ib { height: 34px; }
 .copybox pre { white-space: pre-wrap; word-break: break-all; }
+@media (min-width: 600px) { .dx-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); } }

@@ -12,14 +12,17 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="데일리 브리핑">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>if (innerWidth >= 1024 && !/[?&]m=1/.test(location.search)) location.replace("pc.html" + location.hash);</script>
+<script>
+// 화면 폭 900px 이상(PC, 펼친 폴드 가로)은 PC 화면으로. 폴드를 접고 펴거나 돌려도 따라 바뀜. ?m=1 이면 휴대폰 화면 고정
+if (!/[?&]m=1/.test(location.search)) { const wide = matchMedia("(min-width: 900px)"); if (wide.matches) location.replace("pc.html" + location.hash); wide.addEventListener("change", (e) => { if (e.matches) location.replace("pc.html" + location.hash); }); }
+</script>
 <link rel="stylesheet" href="assets/app.css">
 <style>
 /* 모바일 시안: 왼쪽 시안 도구, 오른쪽 휴대폰 화면. 좁은 화면에서는 휴대폰 화면만 꽉 차게. */
 html, body { height: 100%; }
 body { margin: 0; background: #E9EDF3; }
 .stage { height: 100%; height: 100dvh; display: flex; justify-content: center; }
-.phone { width: 100%; max-width: 560px; height: 100%; display: flex; flex-direction: column; position: relative; overflow: hidden; padding-top: env(safe-area-inset-top, 0px); }
+.phone { width: 100%; max-width: 900px; height: 100%; display: flex; flex-direction: column; position: relative; overflow: hidden; padding-top: env(safe-area-inset-top, 0px); }
 .nav { padding-bottom: max(14px, env(safe-area-inset-bottom, 0px)); }
 .app .scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 16px 20px; display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin; }
 .app .scroll > * { flex: none; }

@@ -676,9 +676,10 @@ function syncSheet(kind) {
 · 코드를 잃어버리면 되찾을 수 없어요. 카톡 '나와의 채팅'에 보내 두면 편해요.
 · 팀 초대 코드와는 달라요.</pre></div>
     <button type="button" class="cta" data-sync>${S.sync.code ? "내 코드 보기" : "동기화 시작하기"}</button>`;
-  if (S.sync.off) return head("PC·휴대폰 동기화") + `<div class="st-warn">동기화 서버를 준비하고 있어요. 조금 뒤에 다시 열어 주세요. 지금은 이 기기에만 저장돼요.</div>`;
+  if (S.sync.off) return head("PC·휴대폰 동기화") + `<div class="st-warn">동기화 서버를 준비하고 있어요. 조금 뒤에 다시 열어 주세요. 지금은 이 기기에만 저장돼요.<br><small>(서버에 SUPABASE_URL · SUPABASE_SECRET_KEY 설정이 아직 안 보여요)</small></div>`;
+  const errBox = S.sync.err ? `<div class="st-warn" style="word-break:break-all">오류: ${esc(S.sync.err)}</div>` : "";
   if (!S.sync.code) return head("PC·휴대폰 동기화") + `<p class="tm-p">지금은 기록이 <b>이 기기에만</b> 저장돼요. 코드를 만들면 다른 기기에서도 같은 분야·스크랩·출석·도감을 볼 수 있어요.</p>
-    <button type="button" class="cta" data-syncnew ${S.sync.busy ? "disabled" : ""}>이 기기에서 새 코드 만들기</button>
+    ${errBox}<button type="button" class="cta" data-syncnew ${S.sync.busy ? "disabled" : ""}>이 기기에서 새 코드 만들기</button>
     ${joinBox("다른 기기 코드로 연결")}
     <button type="button" class="lnk" style="align-self:center" data-synchelp>사용 방법 보기</button>`;
   const devs = Object.entries(S.sync.devices || {}).sort((a, b) => b[1].at - a[1].at);
@@ -718,7 +719,7 @@ function bindSync(app, rerender) {
     if (t.dataset.syncnew !== undefined) {
       S.sync.busy = true; renderSheet(app);
       try { const data = snapshot(); const j = await syncApi("POST", { data }); Object.assign(S.sync, { code: j.code, at: j.updated_at, dirty: false, devices: data.devices, last: Date.now(), lost: false }); saveSync(); toast(app, "코드를 만들었어요 · 다른 기기에 넣어 주세요"); }
-      catch (err) { toast(app, err.off ? "동기화 서버 준비 중이에요" : "코드를 만들지 못했어요 · 잠시 뒤 다시 해 주세요"); }
+      catch (err) { S.sync.err = err.off ? "" : String(err.message || err); toast(app, err.off ? "동기화 서버 준비 중이에요" : "코드를 만들지 못했어요 · 아래 오류 내용을 알려 주세요"); }
       S.sync.busy = false; renderSheet(app); return;
     }
     if (t.dataset.syncjoin !== undefined) {

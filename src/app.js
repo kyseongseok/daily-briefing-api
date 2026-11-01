@@ -97,6 +97,7 @@ function savePrefs() {
     localStorage.setItem(STORE_KEY, JSON.stringify({ mode: S.mode, size: S.size, scrap: [...S.scrap], saved: Object.fromEntries([...S.scrap].filter((id) => S.saved[id]).map((id) => [id, S.saved[id]])), read: [...S.read], readDay: todayKey(), catsVer: 2,
       cats: S.cats.map(({ id, name, p, words, ex, user }) => ({ id, name, p, words, ex, user })) }));
   } catch (e) {}
+  syncSoon(); // 동기화 코드가 있으면 곧 서버에도 저장
 }
 
 /* ── 기사 불러오기: /api/news (네이버 뉴스 검색) ──
@@ -464,6 +465,7 @@ function saveDex() {
   dexProgress();
   try { localStorage.setItem(DEX_KEY, JSON.stringify({ days: DEX.days, streak: DEX.streak, last: DEX.last, reads: DEX.reads, shares: DEX.shares, goldEgg: DEX.goldEgg,
     got: Object.fromEntries(DEX.items.filter((x) => x.got).map((x) => [x.id, x.got])) })); } catch (e) {}
+  syncSoon();
 }
 const owned = (x) => !!x.got;
 function dexCount(kind) { return DEX.items.filter((x) => x.kind === kind && owned(x)).length; }
@@ -574,38 +576,163 @@ function teamBodyHTML(t, wideCls = "wide") {
     ${t.items.map((x) => { const c = cat(x.cat) || S.cats[0]; return `<article class="tcard"><div class="who"><span class="chip" style="background:#FFF4D6;color:#7A5A06">${esc(x.who)} 님이 담음</span>${chipCat(c)}</div><div class="tt">${esc(x.title)}</div>${x.note ? `<div class="note">${esc(x.note)}</div>` : ""}</article>`; }).join("")}`;
 }
 
-/* ── PC·휴대폰 동기화 안내 ── */
-S.sync = { code: "준비 중", devices: [["이 기기", "지금 사용 중"]] };
+/* ── PC·휴대폰 동기화 (/api/sync → Supabase) ──
+   - 로그인 대신 동기화 코드(DB-XXXX-XXXX-XXXX). 같은 코드를 넣은 기기는 같은 기록(분야·스크랩·출석·도감)을 씀
+   - 바뀌면 2초 뒤 서버에 저장, 앱을 다시 볼 때마다 서버 기록을 받아 합침 */
+const SYNC_KEY = "daily-briefing-sync";
+S.sync = { code: "", at: "", dirty: false, dev: "", devices: {}, off: false, busy: false, last: 0 };
+let syncTimer = null, syncRerender = () => {};
+function saveSync() { try { const { code, at, dirty, dev, devices, last } = S.sync; localStorage.setItem(SYNC_KEY, JSON.stringify({ code, at, dirty, dev, devices, last })); } catch (e) {} }
+function loadSync() {
+  try { Object.assign(S.sync, JSON.parse(localStorage.getItem(SYNC_KEY) || "{}")); } catch (e) {}
+  if (!S.sync.dev) { S.sync.dev = "d" + Math.random().toString(36).slice(2, 10); saveSync(); }
+}
+function devName() {
+  const u = navigator.userAgent;
+  if (/iPhone/.test(u)) return "아이폰"; if (/iPad/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1)) return "아이패드";
+  if (/Android/.test(u)) return /Mobile/.test(u) ? "안드로이드 휴대폰" : "안드로이드 태블릿";
+  if (/Windows/.test(u)) return "PC (Windows)"; if (/Macintosh/.test(u)) return "Mac"; return "PC";
+}
+const readLS = (k) => { try { return JSON.parse(localStorage.getItem(k) || "{}"); } catch (e) { return {}; } };
+function snapshot() { return { v: 1, prefs: readLS(STORE_KEY), dex: readLS(DEX_KEY), devices: { ...S.sync.devices, [S.sync.dev]: { name: devName(), at: Date.now() } } }; }
+const dayNum = (k) => { const [y, m, d] = String(k || "0-0-0").split("-").map(Number); return (y || 0) * 10000 + (m || 0) * 100 + (d || 0); };
+const uniq = (...xs) => [...new Set(xs.flat().filter(Boolean))];
+// 서버 기록(r)과 이 기기 기록(l)을 합침. 이 기기에서 바꾼 게 없으면 서버 쪽을 따르고, 있으면 스크랩 등은 합치고 설정은 이 기기 것을 씀
+function mergeData(r, l, dirty) {
+  const rp = r.prefs || {}, lp = l.prefs || {};
+  let p;
+  if (!dirty) p = { ...lp, ...rp };
+  else {
+    p = { ...rp, ...lp, scrap: uniq(rp.scrap || [], lp.scrap || []), saved: { ...(rp.saved || {}), ...(lp.saved || {}) } };
+    if (rp.readDay === lp.readDay) p.read = uniq(rp.read || [], lp.read || []);
+  }
+  const rd = r.dex || {}, ld = l.dex || {};
+  const rFirst = (rd.days || 0) > (ld.days || 0) || ((rd.days || 0) === (ld.days || 0) && dayNum(rd.last) >= dayNum(ld.last));
+  const base = rFirst ? rd : ld, other = rFirst ? ld : rd;
+  const dex = { ...other, ...base, reads: Math.max(rd.reads || 0, ld.reads || 0), shares: Math.max(rd.shares || 0, ld.shares || 0),
+    got: { ...(other.got || {}), ...(base.got || {}) }, goldEgg: base.goldEgg != null ? base.goldEgg : other.goldEgg ?? null };
+  return { v: 1, prefs: p, dex, devices: { ...(r.devices || {}), ...(l.devices || {}) } };
+}
+function applyData(d) {
+  const before = JSON.stringify(S.cats.map((c) => [c.id, c.words, c.ex]));
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(d.prefs || {})); localStorage.setItem(DEX_KEY, JSON.stringify(d.dex || {})); } catch (e) {}
+  S.sync.devices = d.devices || {};
+  loadPrefs(); loadDex();
+  if (JSON.stringify(S.cats.map((c) => [c.id, c.words, c.ex])) !== before) fetchNews().then((n) => { applyNews(n); syncRerender(); }).catch(() => {});
+}
+async function syncApi(method, body, code) {
+  const r = await fetch("/api/sync" + (code ? `?code=${encodeURIComponent(code)}` : ""), { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 503) { S.sync.off = true; throw Object.assign(new Error("off"), { off: true }); }
+  if (!r.ok) throw Object.assign(new Error(j.error || r.status), { status: r.status });
+  S.sync.off = false; return j;
+}
+/* 바뀐 게 있으면 2초 뒤 저장 (savePrefs·saveDex에서 부름) */
+function syncSoon() {
+  if (S.sync.applying) return;
+  S.sync.dirty = true; saveSync();
+  if (!S.sync.code) return;
+  clearTimeout(syncTimer); syncTimer = setTimeout(syncPush, 2000);
+}
+async function syncPush() {
+  if (!S.sync.code) return;
+  try {
+    const data = snapshot(); const j = await syncApi("PUT", { code: S.sync.code, data });
+    S.sync.at = j.updated_at; S.sync.dirty = false; S.sync.devices = data.devices; S.sync.last = Date.now(); saveSync();
+  } catch (e) { if (e.status === 404) { S.sync.lost = true; saveSync(); } }
+}
+/* 서버 기록 받아서 합치기 (앱 열 때, 다시 볼 때) */
+async function syncPull() {
+  if (!S.sync.code || S.sync.busy) return;
+  S.sync.busy = true;
+  try {
+    const j = await syncApi("GET", null, S.sync.code);
+    if (j.updated_at !== S.sync.at) {
+      S.sync.applying = true; applyData(mergeData(j.data || {}, snapshot(), S.sync.dirty)); S.sync.applying = false;
+      S.sync.at = j.updated_at; saveSync(); syncRerender();
+    }
+    S.sync.last = Date.now(); saveSync();
+    if (S.sync.dirty || !(S.sync.devices || {})[S.sync.dev]) await syncPush();
+  } catch (e) { S.sync.applying = false; if (e.status === 404) { S.sync.lost = true; } }
+  finally { S.sync.busy = false; }
+}
+function syncLine() {
+  if (S.sync.code) return `연결됨 · ${S.sync.code}`;
+  return "코드 하나로 PC와 휴대폰 기록을 맞춰요";
+}
+function agoT(t) { if (!t) return "아직 안 맞춤"; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "방금 맞춤" : m < 60 ? `${m}분 전 맞춤` : `${Math.floor(m / 60)}시간 전 맞춤`; }
 function syncSheet(kind) {
   const head = (h) => `<div class="grab"></div><div class="sh-head"><h2>${h}</h2><button type="button" class="x" data-close>닫기</button></div>`;
-  if (kind === "syncHelp") return head("동기화는 이렇게 해요") + `<p class="tm-p">로그인 대신 <b>내 코드</b> 하나로 PC와 휴대폰을 묶어요. 스크랩함, 내 분야, 출석·도감이 같아져요.</p>
+  const joinBox = (label) => `<div style="display:flex;flex-direction:column;gap:8px"><label class="lbl" for="f-sync">${label} <small>· 다른 기기에서 받은 코드가 있으면</small></label>
+      <div style="display:flex;gap:8px"><input class="fld" id="f-sync" placeholder="DB-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;flex:1;min-width:0"><button type="button" class="cta" style="height:46px;padding:0 18px;flex:none" data-syncjoin>연결</button></div></div>`;
+  if (kind === "syncHelp") return head("동기화는 이렇게 해요") + `<p class="tm-p">로그인 대신 <b>동기화 코드</b> 하나로 PC와 휴대폰을 묶어요. 내 분야, 스크랩함, 출석·도감이 같아져요.</p>
     <ol class="sy-steps">
-      <li><b>처음 쓰는 기기에서 코드 받기</b><span>설정 › PC·휴대폰 동기화에서 '내 코드'를 확인해요. DB-로 시작하는 12자리예요.</span></li>
-      <li><b>코드를 다른 기기로 옮기기</b><span>'코드 복사'를 누르고 카카오톡 '나와의 채팅'이나 메모에 붙여넣으면 편해요.</span></li>
-      <li><b>다른 기기에서 코드 넣기</b><span>그 기기의 설정 › 동기화 › '다른 기기 코드로 연결'에 붙여넣고 연결을 눌러요.</span></li>
-      <li><b>끝</b><span>이제 어느 쪽에서 스크랩해도 몇 초 안에 다른 쪽에도 보여요.</span></li>
+      <li><b>한 기기에서 코드 만들기</b><span>설정 › PC·휴대폰 동기화에서 '새 코드 만들기'를 눌러요. DB-로 시작하는 코드가 생겨요.</span></li>
+      <li><b>코드를 다른 기기로 옮기기</b><span>'나에게 보내기'로 카카오톡 '나와의 채팅'에 보내거나, '코드 복사' 후 메모에 붙여넣어요.</span></li>
+      <li><b>다른 기기에서 코드 넣기</b><span>그 기기의 같은 화면에서 '다른 기기 코드로 연결'에 붙여넣고 연결을 눌러요. 두 기기 기록이 합쳐져요.</span></li>
+      <li><b>끝</b><span>이제 한쪽에서 스크랩하거나 분야를 바꾸면, 다른 기기에서 앱을 다시 열 때 똑같이 보여요.</span></li>
     </ol>
     <div class="copybox"><b>꼭 알아 두세요</b><pre>· 코드가 열쇠예요. 남에게 알려 주지 마세요.
-· 코드를 잃어버리면 되찾을 수 없어요. 메모해 두세요.
-· 팀 초대 코드(TEAM-)와는 달라요. 팀 코드는 함께 쓰는 팀 스크랩함용이에요.</pre></div>
-    <button type="button" class="cta" data-sync>내 코드 보기</button>`;
-  return head("PC·휴대폰 동기화") + `<div class="tm-code"><small>내 동기화 코드</small><b>${S.sync.code}</b><span>이 코드를 넣은 기기는 모두 같은 스크랩함을 써요</span></div>
+· 코드를 잃어버리면 되찾을 수 없어요. 카톡 '나와의 채팅'에 보내 두면 편해요.
+· 팀 초대 코드와는 달라요.</pre></div>
+    <button type="button" class="cta" data-sync>${S.sync.code ? "내 코드 보기" : "동기화 시작하기"}</button>`;
+  if (S.sync.off) return head("PC·휴대폰 동기화") + `<div class="st-warn">동기화 서버를 준비하고 있어요. 조금 뒤에 다시 열어 주세요. 지금은 이 기기에만 저장돼요.</div>`;
+  if (!S.sync.code) return head("PC·휴대폰 동기화") + `<p class="tm-p">지금은 기록이 <b>이 기기에만</b> 저장돼요. 코드를 만들면 다른 기기에서도 같은 분야·스크랩·출석·도감을 볼 수 있어요.</p>
+    <button type="button" class="cta" data-syncnew ${S.sync.busy ? "disabled" : ""}>이 기기에서 새 코드 만들기</button>
+    ${joinBox("다른 기기 코드로 연결")}
+    <button type="button" class="lnk" style="align-self:center" data-synchelp>사용 방법 보기</button>`;
+  const devs = Object.entries(S.sync.devices || {}).sort((a, b) => b[1].at - a[1].at);
+  return head("PC·휴대폰 동기화") + `<div class="tm-code"><small>내 동기화 코드</small><b>${esc(S.sync.code)}</b><span>${S.sync.lost ? "서버에서 이 코드를 찾지 못했어요. 연결을 끊고 다시 만들어 주세요." : `이 코드를 넣은 기기는 모두 같은 기록을 써요 · ${agoT(S.sync.last)}`}</span></div>
     <div class="share-g" style="grid-template-columns:repeat(3,minmax(0,1fr))">
       <button type="button" data-synccopy="code"><span class="ic" style="background:#E6F7EE;color:#11804A">${ICON.copy}</span>코드 복사</button>
       <button type="button" data-synccopy="kakao"><span class="ic" style="background:#FEE500">${ICON.talk}</span>나에게 보내기</button>
-      <button type="button" data-synchelp><span class="ic" style="background:#F1F3F7;color:#46546B;font-size:22px;font-weight:850">?</span>사용 방법</button></div>
-    <div style="display:flex;flex-direction:column;gap:2px"><span class="lbl">연결된 기기 ${S.sync.devices.length}대</span>
-      ${S.sync.devices.map(([d, w]) => `<div class="sy-dev"><b>${esc(d)}</b><span>${esc(w)}</span></div>`).join("")}</div>
-    <div style="display:flex;flex-direction:column;gap:8px"><label class="lbl" for="f-sync">다른 기기 코드로 연결 <small>· 이미 다른 기기에서 쓰던 코드가 있으면</small></label>
-      <div style="display:flex;gap:8px"><input class="fld" id="f-sync" placeholder="DB-XXXX-XXXX" autocomplete="off" style="text-transform:uppercase;flex:1;min-width:0"><button type="button" class="cta" style="height:46px;padding:0 18px;flex:none" data-syncjoin>연결</button></div></div>`;
+      <button type="button" data-syncnow><span class="ic" style="background:#E8EFFF;color:#1D4ED8">${ICON.refresh}</span>지금 맞추기</button></div>
+    <div style="display:flex;flex-direction:column;gap:2px"><span class="lbl">이 코드를 쓰는 기기 ${devs.length || 1}대</span>
+      ${(devs.length ? devs : [[S.sync.dev, { name: devName(), at: Date.now() }]]).map(([id, d]) => `<div class="sy-dev"><b>${esc(d.name)}${id === S.sync.dev ? " (이 기기)" : ""}</b><span>${id === S.sync.dev ? "지금 사용 중" : `마지막 사용 ${md(new Date(d.at))}`}</span></div>`).join("")}</div>
+    ${joinBox("다른 코드로 바꾸기")}
+    <div style="display:flex;justify-content:space-between"><button type="button" class="lnk" data-synchelp>사용 방법</button><button type="button" class="lnk" style="color:#B42828" data-syncoff>이 기기 연결 끊기</button></div>`;
 }
-function bindSync(app) {
-  app.addEventListener("click", (e) => {
+function bindSync(app, rerender) {
+  if (rerender) syncRerender = rerender;
+  loadSync();
+  const redraw = () => { if (S.sheet && S.sheet.kind.startsWith("sync")) renderSheet(app); syncRerender(); };
+  // 앱을 다시 볼 때마다 서버 기록 받아오기
+  syncPull().then(redraw);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") syncPull().then(redraw); else if (S.sync.dirty) syncPush(); });
+  app.addEventListener("click", async (e) => {
     const t = e.target.closest("button"); if (!t || !app.contains(t)) return;
     if (t.dataset.synchelp !== undefined) { S.sheet = { kind: "syncHelp" }; renderSheet(app); return; }
-    if (t.dataset.sync !== undefined) { S.sheet = { kind: "sync" }; renderSheet(app); return; }
-    if (t.dataset.synccopy) { if (t.dataset.synccopy === "code") { try { navigator.clipboard.writeText(S.sync.code).catch(() => {}); } catch (err) {} } toast(app, t.dataset.synccopy === "code" ? "코드를 복사했어요" : "카카오톡 '나와의 채팅' 공유 창이 열려요 (실제 앱)"); return; }
-    if (t.dataset.syncjoin !== undefined) { const v = ($("#f-sync", app).value || "").trim(); toast(app, /^DB-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(v) ? "연결했어요 · 그 코드의 스크랩함을 불러왔어요 (예시)" : "DB-XXXX-XXXX 모양의 코드를 넣어 주세요"); return; }
+    if (t.dataset.sync !== undefined) { S.sheet = { kind: "sync" }; renderSheet(app); if (S.sync.code) syncPull().then(redraw); return; }
+    if (t.dataset.synccopy === "code") { try { navigator.clipboard.writeText(S.sync.code).then(() => toast(app, "코드를 복사했어요"), () => toast(app, "복사하지 못했어요 · 코드를 길게 눌러 복사해 주세요")); } catch (err) {} return; }
+    if (t.dataset.synccopy === "kakao") {
+      const text = `DAILY BRIEFING 동기화 코드: ${S.sync.code}\n다른 기기의 설정 › PC·휴대폰 동기화에서 '다른 기기 코드로 연결'에 넣어 주세요.`;
+      if (navigator.share) navigator.share({ title: "DAILY BRIEFING 동기화 코드", text }).catch(() => {});
+      else { try { navigator.clipboard.writeText(text).then(() => toast(app, "복사했어요 · 카카오톡 '나와의 채팅'에 붙여넣으세요")); } catch (err) {} }
+      return;
+    }
+    if (t.dataset.syncnow !== undefined) { await syncPull(); if (S.sync.dirty) await syncPush(); redraw(); toast(app, S.sync.off ? "동기화 서버 준비 중이에요" : "다른 기기와 맞췄어요"); return; }
+    if (t.dataset.syncoff !== undefined) {
+      if (!t.dataset.ask) { t.dataset.ask = "1"; t.textContent = "한 번 더 누르면 끊겨요 (기록은 이 기기에 남아요)"; return; }
+      Object.assign(S.sync, { code: "", at: "", lost: false, devices: {} }); saveSync(); renderSheet(app); toast(app, "이 기기 연결을 끊었어요"); return;
+    }
+    if (t.dataset.syncnew !== undefined) {
+      S.sync.busy = true; renderSheet(app);
+      try { const data = snapshot(); const j = await syncApi("POST", { data }); Object.assign(S.sync, { code: j.code, at: j.updated_at, dirty: false, devices: data.devices, last: Date.now(), lost: false }); saveSync(); toast(app, "코드를 만들었어요 · 다른 기기에 넣어 주세요"); }
+      catch (err) { toast(app, err.off ? "동기화 서버 준비 중이에요" : "코드를 만들지 못했어요 · 잠시 뒤 다시 해 주세요"); }
+      S.sync.busy = false; renderSheet(app); return;
+    }
+    if (t.dataset.syncjoin !== undefined) {
+      const v = ($("#f-sync", app).value || "").trim().toUpperCase().replace(/\s/g, "");
+      if (!/^DB-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/.test(v)) { toast(app, "DB-XXXX-XXXX-XXXX 모양의 코드를 넣어 주세요"); return; }
+      if (v === S.sync.code) { toast(app, "이미 이 코드로 연결돼 있어요"); return; }
+      try {
+        const j = await syncApi("GET", null, v);
+        S.sync.applying = true; applyData(mergeData(j.data || {}, snapshot(), true)); S.sync.applying = false; // 두 기기 기록을 합침
+        Object.assign(S.sync, { code: v, at: j.updated_at, dirty: true, lost: false }); saveSync();
+        await syncPush(); renderSheet(app); syncRerender(); toast(app, "연결했어요 · 두 기기의 기록을 합쳤어요");
+      } catch (err) { S.sync.applying = false; toast(app, err.off ? "동기화 서버 준비 중이에요" : err.status === 404 ? "없는 코드예요 · 다시 확인해 주세요" : "연결하지 못했어요 · 잠시 뒤 다시 해 주세요"); }
+      return;
+    }
   });
 }
 const CREDIT = `<div class="credit">연구정책국 연구정책과<span>Kyeong-seok Kwon</span></div>`;

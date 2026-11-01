@@ -533,3 +533,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .it .ibs .ib { height: 34px; }
 .copybox pre { white-space: pre-wrap; word-break: break-all; }
 @media (min-width: 600px) { .dx-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); } }
+
+/* 글자 링크 버튼 (PC·모바일 공통) */
+.lnk { background: none; border: none; padding: 0; font-size: calc(13px * var(--s)); font-weight: 700; color: #2457E6; }
+.app[data-mode="jogan"] .lnk, .app[data-mode="digest"] .lnk { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }

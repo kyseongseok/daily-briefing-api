@@ -114,8 +114,6 @@ body { margin: 0; background: #E9EDF3; }
 .mycat { width: 100%; border: none; background: none; padding: 0; text-align: left; color: var(--ink); border-top: 1px solid var(--line2); min-height: 46px; }
 .mycat em { font-style: normal; font-size: calc(12.5px * var(--s)); font-weight: 700; color: #2457E6; margin-left: 10px; }
 .app[data-mode="jogan"] .mycat em, .app[data-mode="digest"] .mycat em { color: var(--ink); }
-.lnk { background: none; border: none; padding: 0; font-size: calc(13px * var(--s)); font-weight: 700; color: #2457E6; }
-.app[data-mode="jogan"] .lnk, .app[data-mode="digest"] .lnk { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 
 /* 하단 메뉴 */
 .nav { flex: none; background: var(--nav-bg); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px 6px 14px; }
@@ -206,7 +204,7 @@ function settingsView() {
       <div class="steps">${SIZES.map(([v, nm], i) => `<button type="button" data-size="${v}" aria-pressed="${S.size === v}" aria-label="${nm}" style="font-size:${13 + i * 3}px">가</button>`).join("")}</div></section>
     <section class="box" style="gap:2px"><h3 style="padding-bottom:6px">내 분야<span class="r"><button type="button" class="lnk" data-addopen>+ 추가</button></span></h3>
       ${S.cats.map((c) => `<button type="button" class="mycat" data-edit="${c.id}" style="${cvars(c)}"><i></i>${esc(c.name)}<span>검색어 ${(c.words || []).length}개</span><em>수정 ›</em></button>`).join("")}</section>
-    <section class="box" style="flex-direction:row;align-items:center"><div style="flex:1"><h3>PC·휴대폰 동기화 <button type="button" class="qhelp" data-synchelp aria-label="동기화 사용 방법">?</button></h3><div style="font-size:12px;color:var(--faint);margin-top:4px">곧 열려요 · 지금은 이 기기에만 저장돼요</div></div><button type="button" class="lnk" data-sync>관리 ›</button></section>
+    <section class="box" style="flex-direction:row;align-items:center"><div style="flex:1"><h3>PC·휴대폰 동기화 <button type="button" class="qhelp" data-synchelp aria-label="동기화 사용 방법">?</button></h3><div style="font-size:12px;color:var(--faint);margin-top:4px">${esc(syncLine())}</div></div><button type="button" class="lnk" data-sync>관리 ›</button></section>
     ${isStandalone() ? "" : `<button type="button" class="addbtn" data-a2hs>홈 화면에 추가하기</button>`}
     <button type="button" class="addbtn" data-tour>사용 안내 다시 보기</button>
     ${CREDIT}</div>`;
@@ -224,7 +222,7 @@ function go(t) { const changed = t !== tab; tab = t; if (changed) FX.enter = "#s
 
 loadPrefs(); loadDex();
 bindCommon(app, render);
-bindSync(app);
+bindSync(app, render);
 bindStats(app, render);
 bindCat(app, render);
 bindTeams(app, render, (id) => { scrapTab = id; tab = "scrap"; });

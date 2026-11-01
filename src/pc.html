@@ -171,7 +171,7 @@ function todayPC() {
 function topicsPC() {
   return `<div class="wrap main"><section class="col" style="flex-basis:100%">
     <div class="h2row"><h2>분야별</h2><button type="button" data-addopen>+ 분야 추가</button></div>
-    <div class="grid3">${S.cats.map((c) => secHTML(c, 5, true)).join("")}<button type="button" class="addcard" data-addopen>+ 분야 추가</button></div></section></div>`;
+    <div class="grid3">${S.cats.map((c) => secHTML(c, 5, true)).join("")}${addSlotHTML()}</div></section></div>`;
 }
 function scrapPC() {
   const mine = scrapList();
@@ -214,6 +214,7 @@ function drawerHTML() {
     <section class="card"><h3>글자 크기<span style="margin-left:auto;font-size:13px;font-weight:600;color:var(--sub)">${sz[1]} · ${Math.round(S.size * 100)}%</span></h3><div class="steps">${SIZES.map(([v, nm], i) => `<button type="button" data-size="${v}" aria-pressed="${S.size === v}" aria-label="${nm}" style="font-size:${13 + i * 3}px">가</button>`).join("")}</div></section>
     <section class="card" style="gap:2px"><h3 style="padding-bottom:6px">내 분야</h3>${S.cats.map((c) => `<button type="button" class="mycat" data-edit="${c.id}" style="${cvars(c)}"><i></i>${esc(c.name)}<span>검색어 ${(c.words || []).length}개</span><em>수정 ›</em></button>`).join("")}</section>
     <section class="card"><h3>PC·휴대폰 동기화 <button type="button" class="qhelp" data-synchelp aria-label="동기화 사용 방법">?</button></h3><small style="font-size:13px;color:var(--sub)">곧 열려요 · 지금은 이 기기에만 저장돼요</small><button type="button" class="act" style="justify-content:center" data-sync>코드 보기 · 기기 연결</button></section>
+    <button type="button" class="act" style="justify-content:center" data-tour>사용 안내 다시 보기</button>
     ${CREDIT}
   </aside>`;
 }
@@ -237,6 +238,7 @@ app.addEventListener("click", (e) => {
   if ((b.dataset.sync !== undefined || b.dataset.synchelp !== undefined) && drawer) { drawer = false; render(); S.sheet = { kind: b.dataset.sync !== undefined ? "sync" : "syncHelp" }; renderSheet(app); return; }
   if (b.dataset.edit && drawer) { drawer = false; render(); openSheet(app, "edit", b.dataset.edit); return; }
   if (b.dataset.closedrawer !== undefined) { drawer = false; render(); return; }
+  if (b.dataset.tour !== undefined) { drawer = false; render(); tour(); return; }
   if (b.dataset.setmode) { S.mode = b.dataset.setmode; savePrefs(); render(); return; }
   if (b.dataset.size) { S.size = +b.dataset.size; savePrefs(); render(); return; }
   if (b.dataset.delcat) { S.cats = S.cats.filter((c) => c.id !== b.dataset.delcat); savePrefs(); render(); return; }
@@ -249,8 +251,10 @@ app.addEventListener("click", (e) => {
   if (b.dataset.weekly !== undefined) { const txt = (teamOf(b.dataset.weekly) || S.teams[0]).items.map((x) => `□ ${x.title} (${x.who})`).join("\n"); try { navigator.clipboard.writeText(txt).catch(() => {}); } catch (err) {} toast(app, "이번 주 모음을 복사했어요"); return; }
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drawer) { drawer = false; render(); } });
+function tour() { startTour(app, (t) => { if (t !== tab) { tab = t; drawer = false; render(); window.scrollTo(0, 0); } }, render); }
 bootNews(render);
-if (!sessionStorage.getItem("db-intro")) { sessionStorage.setItem("db-intro", "1"); playIntro(app); }
+const firstTour = () => { if (!tourSeen()) tour(); };
+if (!sessionStorage.getItem("db-intro")) { sessionStorage.setItem("db-intro", "1"); playIntro(app, firstTour); } else firstTour();
 </script>
 </body>
 </html>

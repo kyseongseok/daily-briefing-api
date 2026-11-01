@@ -165,7 +165,7 @@ function topicsView() {
   return header("분야별", `<button type="button" class="hd-link" data-addopen>+ 분야 추가</button>`) + `<div class="scroll">${seg}
     <div class="tabs" role="list">${S.cats.map((c) => `<button type="button" role="listitem" data-jump="${c.id}" style="${cvars(c)}"><i></i>${esc(c.name)}</button>`).join("")}</div>
     ${S.cats.map((c) => `<div id="sec-${c.id}">${secHTML(c, 5, true)}</div>`).join("")}
-    <button type="button" class="addbtn" data-addopen>+ 분야 추가</button></div>`;
+    ${addSlotHTML()}</div>`;
 }
 function catView() {
   return `<header class="hd"><div class="hd-row"><button type="button" class="backbtn" data-back>‹ 분야별</button></div></header><div class="scroll">${catDetailHTML(S.catView.id, false)}</div>`;
@@ -198,6 +198,7 @@ function settingsView() {
     <section class="box" style="gap:2px"><h3 style="padding-bottom:6px">내 분야<span class="r"><button type="button" class="lnk" data-addopen>+ 추가</button></span></h3>
       ${S.cats.map((c) => `<button type="button" class="mycat" data-edit="${c.id}" style="${cvars(c)}"><i></i>${esc(c.name)}<span>검색어 ${(c.words || []).length}개</span><em>수정 ›</em></button>`).join("")}</section>
     <section class="box" style="flex-direction:row;align-items:center"><div style="flex:1"><h3>PC·휴대폰 동기화 <button type="button" class="qhelp" data-synchelp aria-label="동기화 사용 방법">?</button></h3><div style="font-size:12px;color:var(--faint);margin-top:4px">곧 열려요 · 지금은 이 기기에만 저장돼요</div></div><button type="button" class="lnk" data-sync>관리 ›</button></section>
+    <button type="button" class="addbtn" data-tour>사용 안내 다시 보기</button>
     ${CREDIT}</div>`;
 }
 function render() {
@@ -235,9 +236,12 @@ app.addEventListener("click", (e) => {
   if (b.dataset.size) { S.size = +b.dataset.size; savePrefs(); render(); return; }
   if (b.dataset.delcat) { S.cats = S.cats.filter((c) => c.id !== b.dataset.delcat); savePrefs(); render(); toast(app, "분야를 삭제했어요"); return; }
   if (b.dataset.replay !== undefined) { playIntro(app); return; }
+  if (b.dataset.tour !== undefined) { tour(); return; }
 });
+function tour() { startTour(app, (t) => { if (t !== tab) { tab = t; render(); const sc = $("#screen .scroll"); if (sc) sc.scrollTop = 0; } }, render); }
 bootNews(render);
-if (!sessionStorage.getItem("db-intro")) { sessionStorage.setItem("db-intro", "1"); playIntro(app); }
+const firstTour = () => { if (!tourSeen()) tour(); };
+if (!sessionStorage.getItem("db-intro")) { sessionStorage.setItem("db-intro", "1"); playIntro(app, firstTour); } else firstTour();
 </script>
 </body>
 </html>

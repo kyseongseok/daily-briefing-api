@@ -468,3 +468,41 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .hx-stage::before { content: ""; position: absolute; left: 50%; top: 50%; width: 220px; height: 220px; margin: -110px 0 0 -110px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 214, 102, .55), rgba(255, 214, 102, 0) 65%); opacity: 0; transform: scale(.4); pointer-events: none; }
 .hx.gold.open .hx-stage::before { animation: glow 1.2s ease-out forwards; }
 @keyframes glow { 40% { opacity: 1; transform: scale(1.1); } 100% { opacity: .55; transform: scale(1); } }
+
+/* 빈 분야 칸 */
+.addslot { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 150px; padding: 20px 16px; border: 1.5px dashed #B9C6DD; border-radius: var(--r); background: color-mix(in srgb, var(--surface) 55%, transparent); color: var(--sub); text-align: center; transition: border-color .15s, background .15s; }
+.addslot:hover { border-color: #2457E6; background: var(--surface); }
+.addslot .as-plus { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: #E8EFFF; color: #2457E6; font-size: 24px; font-weight: 500; line-height: 1; margin-bottom: 2px; }
+.addslot b { font-size: calc(15px * var(--s)); color: #2457E6; }
+.addslot .as-t { font-size: calc(13px * var(--s)); line-height: 1.5; }
+.addslot .as-ex { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin-top: 4px; }
+.addslot .as-ex i { font-style: normal; font-size: calc(12px * var(--s)); padding: 3px 9px; border-radius: 999px; background: var(--bg); border: 1px dashed var(--line); color: var(--faint); }
+.app[data-mode="jogan"] .addslot { border-radius: 0; border-color: var(--ink); background: none; }
+.app[data-mode="jogan"] .addslot .as-plus { border-radius: 0; background: none; border: 1.5px solid var(--ink); color: var(--ink); }
+.app[data-mode="jogan"] .addslot b { color: var(--ink); }
+.app[data-mode="digest"] .addslot b, .app[data-mode="digest"] .addslot .as-plus { color: var(--ink); }
+
+/* 처음 접속 안내 */
+.tour { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; }
+.tour .tr-dim { position: absolute; inset: 0; background: rgba(14, 26, 54, .38); }
+.tour .tr-card { position: relative; width: min(440px, 100%); max-height: 88vh; overflow-y: auto; background: var(--surface); color: var(--ink); border-radius: 22px 22px 0 0; padding: 18px 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; animation: up .22s ease-out; box-shadow: 0 -8px 30px rgba(14, 26, 54, .18); }
+@media (min-width: 700px) { .tour { align-items: center; } .tour .tr-card { border-radius: 22px; padding-bottom: 20px; } }
+.tour .tr-top { display: flex; align-items: center; gap: 12px; }
+.tour .tr-top img { width: 64px; height: 64px; object-fit: contain; }
+.tour .tr-dots { display: flex; gap: 5px; }
+.tour .tr-dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--line); transition: width .2s; }
+.tour .tr-dots i.on { width: 18px; background: #2457E6; }
+.tour .tr-skip { margin-left: auto; border: none; background: none; color: var(--faint); font-size: 13px; padding: 6px; }
+.tour h2 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+.tour p { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--sub); }
+.tour p b { color: var(--ink); }
+.tour .tr-cats { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.tour .tr-cat { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: inset 4px 0 0 var(--c); }
+.tour .tr-nm { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 800; color: var(--k); }
+.tour .tr-nm i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.tour .tr-add { height: 42px; border: 1.5px dashed #B9C6DD; border-radius: 12px; background: none; color: #2457E6; font-size: 14px; font-weight: 700; }
+.tour .tr-btns { display: flex; gap: 8px; margin-top: 6px; }
+.tour .tr-btns button { height: 48px; border-radius: 14px; font-size: 15px; font-weight: 800; }
+.tour .tr-prev { flex: 0 0 96px; border: 1px solid var(--line); background: var(--surface); color: var(--sub); }
+.tour .tr-next { flex: 1; border: none; background: #2457E6; color: #fff; }
+.tour .tr-card.still { animation: none; }

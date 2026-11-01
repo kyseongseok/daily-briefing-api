@@ -12,10 +12,9 @@ const PALETTE = [
 const S = {
   mode: "basic", size: 1,
   cats: [
-    { id: "agri", name: "농업·농촌", p: 0, count: 8, words: ["농촌진흥청", "스마트농업", "농업기술", "농촌"], ex: [] },
-    { id: "sci", name: "과학·바이오", p: 1, count: 5, words: ["그린바이오", "유전자교정", "생명공학"], ex: [] },
-    { id: "it", name: "IT·AI", p: 2, count: 6, words: ["생성형 AI", "인공지능", "디지털 전환"], ex: ["AI 스피커"] },
-    { id: "pol", name: "정책·제도", p: 3, count: 3, words: ["연구직 공무원", "R&D 예산", "농업 정책"], ex: [] },
+    { id: "agri", name: "농업·농촌", p: 0, count: 0, words: ["농촌진흥청"], ex: [] },
+    { id: "sci", name: "과학·바이오", p: 1, count: 0, words: ["그린바이오"], ex: [] },
+    { id: "it", name: "IT·AI", p: 2, count: 0, words: ["생성형 AI", "인공지능", "디지털 전환"], ex: ["AI 스피커"] },
   ],
   arts: [
     { id: "a1", cat: "agri", top: true, media: 12, title: "노지 스마트농업 시범지구 운영 결과 공개… 내년 확대 검토", src: "○○일보", time: "2시간 전",
@@ -24,16 +23,13 @@ const S = {
     { id: "a2", cat: "agri", pick: 2, media: 7, title: "기후변화로 사과 재배지 북상… 품종 전환 논의 본격화", src: "△△신문", time: "4시간 전" },
     { id: "a3", cat: "it", pick: 3, title: "생성형 AI, 농업 현장 상담 서비스에 도입 확대", src: "□□경제", time: "5시간 전" },
     { id: "a4", cat: "sci", pick: 4, title: "그린바이오 산업 육성 R&D 예산안, 상임위 논의 시작", src: "◇◇뉴스", time: "6시간 전" },
-    { id: "a5", cat: "pol", pick: 5, title: "청년농 정착 지원 제도 개선안 공개… 의견 수렴 착수", src: "○○일보", time: "8시간 전" },
+    { id: "a5", cat: "agri", pick: 5, title: "청년농 정착 지원 제도 개선안 공개… 의견 수렴 착수", src: "○○일보", time: "8시간 전" },
     { id: "a6", cat: "agri", title: "가을철 과수 병해충 방제 요령 안내", src: "○○일보", time: "3시간 전" },
     { id: "a7", cat: "agri", title: "신품종 벼 현장 평가회… 농업인 반응 살펴", src: "☆☆농민신문", time: "7시간 전" },
     { id: "a8", cat: "sci", title: "유전자교정 작물 안전성 기준 마련 착수", src: "△△신문", time: "3시간 전" },
     { id: "a9", cat: "sci", title: "미생물 비료 실증 연구 성과 발표", src: "◇◇뉴스", time: "어제" },
     { id: "a10", cat: "it", title: "공공기관 AI 활용 가이드라인 개정안 공개", src: "◇◇뉴스", time: "3시간 전" },
     { id: "a11", cat: "it", title: "AI 반도체 국산화 지원 예산 확대", src: "□□경제", time: "어제" },
-    { id: "a12", cat: "pol", title: "연구직 공무원 처우 개선 논의 본격화", src: "○○일보", time: "1시간 전" },
-    { id: "a13", cat: "spo", title: "한화이글스, 다음 시즌 대비 선발진 재정비 착수", src: "☆☆스포츠", time: "40분 전" },
-    { id: "a14", cat: "spo", title: "프로야구 FA 시장 개장 앞두고 관심 집중", src: "○○일보", time: "2시간 전" },
     { id: "a15", cat: "agri", media: 3, title: "스마트팜 청년 창업 지원 대상 확대", src: "□□경제", time: "1시간 전" },
     { id: "a16", cat: "agri", title: "가을 배추 작황 양호… 김장철 가격 안정 전망", src: "◇◇뉴스", time: "5시간 전" },
     { id: "a17", cat: "agri", title: "농촌 일손 돕기 주간 운영", src: "△△신문", time: "어제" },
@@ -42,11 +38,6 @@ const S = {
     { id: "a20", cat: "it", media: 5, title: "공공 데이터 개방 확대, 농업 데이터 포함", src: "◇◇뉴스", time: "1시간 전" },
     { id: "a21", cat: "it", title: "디지털 전환 교육 공무원 대상 확대", src: "△△신문", time: "6시간 전" },
     { id: "a22", cat: "it", title: "AI 기반 병해충 진단 앱 현장 보급", src: "농민신문", time: "어제" },
-    { id: "a23", cat: "pol", media: 3, title: "농업 R&D 예산 배분 방향 공개", src: "□□경제", time: "3시간 전" },
-    { id: "a24", cat: "pol", title: "공공기관 유연근무 확대 지침 발표", src: "◇◇뉴스", time: "5시간 전" },
-    { id: "a25", cat: "spo", title: "K리그 막판 순위 경쟁 치열", src: "☆☆스포츠", time: "1시간 전" },
-    { id: "a26", cat: "spo", title: "한화이글스 신인 드래프트 지명 선수 발표", src: "○○일보", time: "4시간 전" },
-    { id: "a27", cat: "spo", title: "전국체전 개막… 지역 선수단 출전", src: "△△신문", time: "어제" },
   ],
   read: new Set(),
   scrap: new Set(),
@@ -96,12 +87,14 @@ function loadPrefs() {
     if (Array.isArray(p.scrap)) S.scrap = new Set(p.scrap);
     if (p.saved && typeof p.saved === "object") S.saved = p.saved;
     if (p.readDay === todayKey() && Array.isArray(p.read)) S.read = new Set(p.read); else S.read = new Set();
-    if (Array.isArray(p.cats) && p.cats.length) S.cats = p.cats.map((c) => ({ ...c, count: artsOf(c.id).length }));
+    // 예전 기본 분야(정책·제도 포함 4개)를 손대지 않고 쓰던 경우엔 새 기본 분야로 바꿈
+    const oldDefault = !p.catsVer && Array.isArray(p.cats) && p.cats.map((c) => c.id).join() === "agri,sci,it,pol" && !p.cats.some((c) => c.user);
+    if (!oldDefault && Array.isArray(p.cats) && p.cats.length) S.cats = p.cats.map((c) => ({ ...c, count: artsOf(c.id).length }));
   } catch (e) {}
 }
 function savePrefs() {
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify({ mode: S.mode, size: S.size, scrap: [...S.scrap], saved: Object.fromEntries([...S.scrap].filter((id) => S.saved[id]).map((id) => [id, S.saved[id]])), read: [...S.read], readDay: todayKey(),
+    localStorage.setItem(STORE_KEY, JSON.stringify({ mode: S.mode, size: S.size, scrap: [...S.scrap], saved: Object.fromEntries([...S.scrap].filter((id) => S.saved[id]).map((id) => [id, S.saved[id]])), read: [...S.read], readDay: todayKey(), catsVer: 2,
       cats: S.cats.map(({ id, name, p, words, ex, user }) => ({ id, name, p, words, ex, user })) }));
   } catch (e) {}
 }
@@ -176,7 +169,7 @@ function applyAppVars(app) {
 /* 공통 조각 */
 const chipCat = (c) => `<span class="chip cat" style="${cvars(c)}">${esc(c.name)}</span>`;
 function itemHTML(a, opts = {}) {
-  const c = cat(a.cat), r = S.read.has(a.id);
+  const c = cat(a.cat) || { id: "etc", name: "지운 분야", p: 6 }, r = S.read.has(a.id);
   const meta = r ? `읽음 · ${esc(a.src)}` : `${opts.chip === false ? "" : chipCat(c)}${esc(a.src)} · ${esc(a.time)}${a.media ? ` · ${a.media}개 매체` : ""}`;
   return `<article class="it${r ? " read" : ""}${a.fresh ? " fresh" : ""}" data-aid="${a.id}" style="${cvars(c)}">${opts.n ? `<div class="n">${opts.n}</div>` : ""}
     <div class="b"><button type="button" class="t" data-open="${a.id}">${esc(a.title)}</button><div class="m">${meta}</div></div>
@@ -727,4 +720,66 @@ function showHatch(app, id) {
   app.append(el);
   setTimeout(() => el.classList.add("shake"), 250);
   setTimeout(() => el.classList.add("open"), 1500);
+}
+
+/* ── 빈 분야 칸: 분야를 더 넣을 수 있다는 걸 보여 줌 ── */
+function addSlotHTML() {
+  return `<button type="button" class="addslot" data-addopen><span class="as-plus" aria-hidden="true">+</span><b>분야 추가</b>
+    <span class="as-t">관심 있는 주제를 검색어로 모아 볼 수 있어요</span><span class="as-ex" aria-hidden="true"><i>스마트팜</i><i>탄소중립</i><i>R&amp;D 예산</i></span></button>`;
+}
+
+/* ── 처음 접속 안내: 화면마다 한 번씩 보여 주고, 마지막에 분야별 검색어를 정함 ── */
+const TOUR_KEY = "daily-briefing-tour";
+const TOUR = [
+  { tab: "today", img: "wave", t: "반가워요! DAILY BRIEFING이에요", d: "매일 내 분야 뉴스를 한곳에 모아 보여 드려요.<br>화면마다 무엇을 하는지 짧게 알려 드릴게요." },
+  { tab: "today", img: "megaphone", t: "오늘", d: "여러 매체가 함께 다룬 소식을 먼저 골라 <b>오늘 꼭 볼 기사 5개</b>로 보여 줘요. 오른쪽 위 새로고침으로 최신 기사를 다시 불러와요." },
+  { tab: "topics", img: "magnifier", t: "분야별", d: "분야마다 <b>검색어</b>로 기사를 모아요. 검색어가 하나라도 들어간 기사가 모이고, <b>빼는 말</b>이 들어간 기사는 빠져요. 분야별 통계도 여기서 볼 수 있어요." },
+  { tab: "scrap", img: "basket", t: "스크랩함", d: "기사 옆 <b>별표</b>를 누르면 여기에 모여요. 다음 날에도 그대로 남아 있어요." },
+  { tab: "dex", img: "sprout", t: "도감", d: "하루에 기사 <b>3개</b>를 읽으면 출석이에요. 출석 5일마다 이삭이나 새싹이 친구가 찾아오고, 특별한 기록을 세우면 황금 알이 나와요." },
+  { tab: "topics", img: "think", t: "내 분야 검색어 정하기", setup: true, d: "검색어를 지우거나 더해 보세요. 나중에 분야별 화면의 <b>수정</b>이나 설정에서 언제든 바꿀 수 있어요." },
+];
+function tourSeen() { try { return !!localStorage.getItem(TOUR_KEY); } catch (e) { return true; } }
+function startTour(app, goTab, rerender) {
+  let i = 0;
+  const draft = S.cats.map((c) => ({ id: c.id, words: (c.words || []).slice() }));
+  const el = document.createElement("div"); el.className = "tour";
+  $$(".tour", app).forEach((n) => n.remove());
+  app.append(el);
+  const draw = (focusId) => {
+    const st = TOUR[i];
+    goTab(st.tab);
+    const setup = st.setup ? `<div class="tr-cats">${S.cats.map((c) => { const d = draft.find((x) => x.id === c.id); return `<div class="tr-cat" style="${cvars(c)}"><div class="tr-nm"><i></i>${esc(c.name)}</div>
+        <div class="kws">${d.words.map((w, k) => `<button type="button" class="kw" data-twdel="${c.id}:${k}" aria-label="${esc(w)} 지우기">${esc(w)} <span style="opacity:.6">×</span></button>`).join("")}<input class="kw-in" data-twin="${c.id}" id="tw-${c.id}" placeholder="+ 검색어 추가" enterkeyhint="done" autocomplete="off"></div></div>`; }).join("")}
+        <button type="button" class="tr-add" data-tadd>+ 새 분야 만들기</button></div>` : "";
+    el.innerHTML = `<div class="tr-dim"></div><section class="tr-card${focusId ? " still" : ""}" role="dialog" aria-modal="true" aria-label="사용 안내 ${i + 1} / ${TOUR.length}">
+      <div class="tr-top">${IMG[st.img] ? `<img src="${IMG[st.img]}" alt="">` : ""}<div class="tr-dots" aria-hidden="true">${TOUR.map((_, k) => `<i${k === i ? ' class="on"' : ""}></i>`).join("")}</div>${st.setup ? "" : `<button type="button" class="tr-skip" data-tskip>건너뛰기</button>`}</div>
+      <h2>${st.t}</h2><p>${st.d}</p>${setup}
+      <div class="tr-btns">${i ? `<button type="button" class="tr-prev" data-tprev>이전</button>` : ""}<button type="button" class="tr-next" data-tnext>${st.setup ? "이대로 시작하기" : i === TOUR.length - 2 ? "검색어 정하기" : "다음"}</button></div></section>`;
+    if (focusId) { const f = $("#" + focusId, el); if (f) f.focus(); }
+  };
+  const finish = (openAdd) => {
+    try { localStorage.setItem(TOUR_KEY, todayKey()); } catch (e) {}
+    let changed = false;
+    draft.forEach((d) => { const c = cat(d.id); if (c && c.words.join() !== d.words.join()) { c.words = d.words; changed = true; } });
+    el.remove(); savePrefs(); goTab("today");
+    if (changed) { rerender(); fetchNews().then((n) => { applyNews(n); rerender(); }).catch(() => {}); }
+    if (openAdd) openSheet(app, "add");
+  };
+  const addWord = (inp) => { const v = inp.value.trim(); if (!v) return; const d = draft.find((x) => x.id === inp.dataset.twin); if (!d.words.includes(v)) d.words.push(v); draw(inp.id); };
+  el.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.tnext !== undefined) {
+      if (TOUR[i].setup) { const pend = $$(".kw-in", el).filter((x) => x.value.trim()); pend.forEach((x) => { const d = draft.find((y) => y.id === x.dataset.twin); const v = x.value.trim(); if (!d.words.includes(v)) d.words.push(v); }); finish(false); }
+      else { i++; draw(); }
+      return;
+    }
+    if (b.dataset.tprev !== undefined) { i = Math.max(0, i - 1); draw(); return; }
+    if (b.dataset.tskip !== undefined) { i = TOUR.length - 1; draw(); return; }
+    if (b.dataset.tadd !== undefined) { finish(true); return; }
+    if (b.dataset.twdel) { const [id, k] = b.dataset.twdel.split(":"); draft.find((x) => x.id === id).words.splice(+k, 1); draw("tw-" + id); return; }
+  });
+  el.addEventListener("keydown", (e) => {
+    if (e.target.dataset.twin && e.key === "Enter" && !e.isComposing) { e.preventDefault(); addWord(e.target); }
+  });
+  draw();
 }

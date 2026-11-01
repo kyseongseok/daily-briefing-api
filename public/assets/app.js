@@ -240,13 +240,13 @@ function shareSheet(id) {
   const canShare = !!navigator.share;
   return `<div class="grab"></div><div class="sh-head"><h2>이 기사 공유</h2><button type="button" class="x" data-close>닫기</button></div>
     <div class="share-g">
-      <button type="button" data-copy="kakao" data-sid="${a.id}"><span class="ic" style="background:#FEE500">${ICON.talk}</span>${canShare ? "카카오톡·앱으로" : "카카오톡"}</button>
+      <button type="button" data-copy="kakao" data-sid="${a.id}"><span class="ic" style="background:#FEE500">${ICON.talk}</span>${kakaoOn() || !canShare ? "카카오톡" : "카카오톡·앱으로"}</button>
       <button type="button" data-copy="msg" data-sid="${a.id}"><span class="ic" style="background:#E6F7EE;color:#11804A">${ICON.copy}</span>메신저용 복사</button>
       <button type="button" data-copy="link" data-sid="${a.id}"><span class="ic" style="background:#F1F3F7;color:#46546B">${ICON.link}</span>링크 복사</button>
       <button type="button" data-copy="team" data-sid="${a.id}"><span class="ic" style="background:#E8EFFF;color:#1D4ED8">${ICON.team}</span>팀에 담기</button>
     </div>
     <div class="copybox"><b>메신저용 복사 — 네이버웍스 등 어디든 붙여넣기</b><pre id="copytext">${esc(shareText(a))}</pre></div>
-    ${canShare ? "" : `<div class="st-note small" style="text-align:center">PC에서는 '메신저용 복사' 후 카카오톡 PC에 붙여넣어 주세요.</div>`}`;
+    ${canShare || kakaoOn() ? "" : `<div class="st-note small" style="text-align:center">PC에서는 '메신저용 복사' 후 카카오톡 PC에 붙여넣어 주세요.</div>`}`;
 }
 const KW_MAX = 10; // 분야마다 검색어 최대 개수 (검색어 하나당 네이버 검색 1번)
 function pushWord(list, v, app) {
@@ -340,7 +340,7 @@ function bindCommon(app, rerender) {
     }
     if (t.dataset.rel !== undefined) { S.relOpen = !S.relOpen; FX.relAnim = S.relOpen; rerender(); return; }
     if (t.dataset.scrap) { const id = t.dataset.scrap; if (S.scrap.has(id)) S.scrap.delete(id); else { S.scrap.add(id); rememberScrap(id); } savePrefs(); saveDex(); if (S.scrap.has(id)) FX.star = id; toast(app, S.scrap.has(id) ? "스크랩함에 담았어요" : "스크랩을 뺐어요"); rerender(); return; }
-    if (t.dataset.share) { openSheet(app, "share", t.dataset.share); return; }
+    if (t.dataset.share) { kakaoInit(); openSheet(app, "share", t.dataset.share); return; }
     if (t.dataset.close !== undefined) { closeSheet(app); return; }
     if (t.dataset.copy) {
       const a = findArt(t.dataset.sid), kind = t.dataset.copy; if (!a) return;
@@ -349,8 +349,10 @@ function bindCommon(app, rerender) {
       DEX.shares += 1; saveDex();
       // 카카오톡: 휴대폰 공유 창(카카오톡·문자·밴드 등)을 띄움. 공유 창이 없는 PC에서는 복사로 대신
       if (kind === "kakao") {
+        if (kakaoShareArticle(a)) { closeSheet(app); return; }
         if (navigator.share) { navigator.share({ title: a.title, text: shareText(a).replace(/\n - https?:\S+$/, ""), url: a.link || location.origin }).then(() => closeSheet(app)).catch(() => {}); return; }
-        copy(shareText(a), "복사했어요 · 카카오톡에 붙여넣으세요"); closeSheet(app); return;
+        copy(shareText(a), "복사했어요 · 카카오톡에 붙여넣으세요"); closeSheet(app);
+        return;
       }
       if (kind === "msg") copy(shareText(a), "복사했어요 · 메신저에 붙여넣으세요");
       if (kind === "link") copy(a.link || location.origin, "링크를 복사했어요");
@@ -605,7 +607,7 @@ function teamSheet(kind, arg) {
     const t = teamOf(arg); if (!t) return "";
     return head(arg === S.justMade ? "팀을 만들었어요" : "팀원 초대") + `<div class="tm-code"><small>${esc(t.name)} 초대 코드</small><b>${t.code}</b><span>팀원 ${t.members.length}명</span></div>
       <div class="share-g" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-        <button type="button" data-inv="kakao" data-tid="${t.id}"><span class="ic" style="background:#FEE500">${ICON.talk}</span>${navigator.share ? "카카오톡·앱으로" : "카카오톡"}</button>
+        <button type="button" data-inv="kakao" data-tid="${t.id}"><span class="ic" style="background:#FEE500">${ICON.talk}</span>${kakaoOn() || !navigator.share ? "카카오톡" : "카카오톡·앱으로"}</button>
         <button type="button" data-inv="msg" data-tid="${t.id}"><span class="ic" style="background:#E6F7EE;color:#11804A">${ICON.copy}</span>초대 문구 복사</button>
         <button type="button" data-inv="link" data-tid="${t.id}"><span class="ic" style="background:#F1F3F7;color:#46546B">${ICON.link}</span>링크 복사</button></div>
       <div class="copybox"><b>네이버웍스 등 메신저에 붙여넣기</b><pre>${esc(inviteText(t))}</pre></div>
@@ -685,7 +687,7 @@ function bindTeams(app, rerender, onTeam) {
     if (t.dataset.inv) {
       const tm = teamOf(t.dataset.tid), text = inviteText(tm), link = `${appUrl()}#join=${tm.code}`;
       const copy = (v, msg) => { try { navigator.clipboard.writeText(v).then(() => toast(app, msg), () => toast(app, "복사하지 못했어요 · 글을 길게 눌러 복사해 주세요")); } catch (err) {} };
-      if (t.dataset.inv === "kakao") { if (navigator.share) navigator.share({ title: `'${tm.name}' 팀 스크랩함 초대`, text: text.replace(/\n\S+#join=\S+/, ""), url: link }).catch(() => {}); else copy(text, "복사했어요 · 카카오톡에 붙여넣으세요"); return; }
+      if (t.dataset.inv === "kakao") { if (kakaoShareInvite(tm)) return; if (navigator.share) navigator.share({ title: `'${tm.name}' 팀 스크랩함 초대`, text: text.replace(/\n\S+#join=\S+/, ""), url: link }).catch(() => {}); else copy(text, "복사했어요 · 카카오톡에 붙여넣으세요"); return; }
       copy(t.dataset.inv === "link" ? link : text, t.dataset.inv === "link" ? "초대 링크를 복사했어요" : "초대 문구를 복사했어요"); return;
     }
     if (t.dataset.tadd) {
@@ -919,6 +921,7 @@ function bindSync(app, rerender) {
     if (t.dataset.synccopy === "code") { try { navigator.clipboard.writeText(S.sync.code).then(() => toast(app, "코드를 복사했어요"), () => toast(app, "복사하지 못했어요 · 코드를 길게 눌러 복사해 주세요")); } catch (err) {} return; }
     if (t.dataset.synccopy === "kakao") {
       const text = `DAILY BRIEFING 동기화 코드: ${S.sync.code}\n다른 기기의 설정 › PC·휴대폰 동기화에서 '다른 기기 코드로 연결'에 넣어 주세요.`;
+      if (kakaoShareText(text)) return;
       if (navigator.share) navigator.share({ title: "DAILY BRIEFING 동기화 코드", text }).catch(() => {});
       else { try { navigator.clipboard.writeText(text).then(() => toast(app, "복사했어요 · 카카오톡 '나와의 채팅'에 붙여넣으세요")); } catch (err) {} }
       return;
@@ -1215,4 +1218,53 @@ function showA2HS(app) {
     }
   });
   draw();
+}
+
+/* ── 카카오톡 공유 (카카오 JavaScript SDK) ──
+   - 서버 환경변수 KAKAO_JS_KEY가 있으면 카카오톡으로 바로 공유(카드 모양 메시지), 없거나 실패하면 휴대폰 공유 창/복사로 대신
+   - 메시지 링크는 등록한 우리 사이트 주소만 허용돼서 기사는 /api/go?u=… 를 거쳐 열림 */
+const KAKAO_SDK = { src: "https://t1.kakaocdn.net/kakao_js_sdk/2.8.4/kakao.min.js", integrity: "sha384-BGX7Wb16GmRFagri4bLJV2DgipVZaU2AI812GZtHtHzzDQJnfHasDXN5houxv45w" };
+let kakaoReady = null;
+function kakaoInit() {
+  if (kakaoReady) return kakaoReady;
+  kakaoReady = (async () => {
+    const cfg = await fetch("/api/config").then((r) => r.json()).catch(() => ({}));
+    if (!cfg.kakao) return false;
+    if (!window.Kakao) await new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = KAKAO_SDK.src; sc.integrity = KAKAO_SDK.integrity; sc.crossOrigin = "anonymous"; sc.onload = ok; sc.onerror = no; document.head.append(sc); });
+    if (!window.Kakao.isInitialized()) window.Kakao.init(cfg.kakao);
+    return true;
+  })().catch(() => false);
+  return kakaoReady;
+}
+// 버튼을 누른 그 순간에 바로 열어야 PC 팝업이 막히지 않아서, 미리 준비해 두고 준비된 경우에만 카카오로 보냄
+const kakaoOn = () => !!(window.Kakao && window.Kakao.isInitialized && window.Kakao.isInitialized());
+if (typeof window !== "undefined") setTimeout(() => kakaoInit().then((ok) => { S.kakaoOK = ok; }), 1500);
+const goUrl = (u) => `${location.origin}/api/go?u=${encodeURIComponent(u)}`;
+// 기사 공유: 성공하면 true
+function kakaoShareArticle(a) {
+  if (!kakaoOn()) return false;
+  const link = safeUrl(a.link) ? goUrl(safeUrl(a.link)) : location.origin + "/";
+  const d = a.t ? new Date(a.t) : new Date();
+  try {
+    window.Kakao.Share.sendDefault({ objectType: "feed",
+      content: { title: a.title, description: `${a.src || ""} · ${d.getMonth() + 1}.${d.getDate()}.${a.media > 1 ? ` · ${a.media}개 매체 보도` : ""}`, imageUrl: location.origin + "/icon-512.png", imageWidth: 512, imageHeight: 512, link: { mobileWebUrl: link, webUrl: link } },
+      buttons: [{ title: "기사 보기", link: { mobileWebUrl: link, webUrl: link } }, { title: "DAILY BRIEFING", link: { mobileWebUrl: location.origin + "/", webUrl: location.origin + "/" } }] });
+    return true;
+  } catch (e) { return false; }
+}
+// 팀 초대 공유
+function kakaoShareInvite(t) {
+  if (!kakaoOn()) return false;
+  const link = `${location.origin}/#join=${t.code}`;
+  try {
+    window.Kakao.Share.sendDefault({ objectType: "feed",
+      content: { title: `'${t.name}' 팀 스크랩함 초대`, description: `DAILY BRIEFING에서 기사를 함께 모아요 · 초대 코드 ${t.code}`, imageUrl: location.origin + "/icon-512.png", imageWidth: 512, imageHeight: 512, link: { mobileWebUrl: link, webUrl: link } },
+      buttons: [{ title: "팀에 참여하기", link: { mobileWebUrl: link, webUrl: link } }] });
+    return true;
+  } catch (e) { return false; }
+}
+// 동기화 코드 나에게 보내기
+function kakaoShareText(text) {
+  if (!kakaoOn()) return false;
+  try { window.Kakao.Share.sendDefault({ objectType: "text", text, link: { mobileWebUrl: location.origin + "/", webUrl: location.origin + "/" }, buttonTitle: "DAILY BRIEFING 열기" }); return true; } catch (e) { return false; }
 }

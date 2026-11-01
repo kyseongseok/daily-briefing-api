@@ -20,6 +20,14 @@ const PRESS = {
   "spotvnews.co.kr": "스포티비뉴스", "osen.co.kr": "OSEN", "sportschosun.com": "스포츠조선", "isplus.com": "일간스포츠", "xportsnews.com": "엑스포츠뉴스",
 };
 
+// 같은 소식이 여러 개면 대표 기사를 고르는 순서 (숫자가 작을수록 먼저)
+// 1: 통신사·지상파·종합편성·종합일간지·주요 경제지  2: 농업·과학·IT 전문지와 정책브리핑  3: 그 밖의 매체
+const TIER1 = ["연합뉴스", "뉴시스", "뉴스1", "KBS", "MBC", "SBS", "YTN", "JTBC", "MBN", "채널A", "연합뉴스TV",
+  "조선일보", "중앙일보", "동아일보", "한겨레", "경향신문", "한국일보", "국민일보", "서울신문", "세계일보", "문화일보",
+  "매일경제", "한국경제", "서울경제", "머니투데이", "이데일리", "파이낸셜뉴스", "아시아경제", "헤럴드경제"];
+const TIER2 = ["농민신문", "한국농어민신문", "농수축산신문", "팜인사이트", "대한민국 정책브리핑", "동아사이언스", "헬로디디", "전자신문", "지디넷코리아", "디지털데일리"];
+export const tier = (src) => (TIER1.includes(src) ? 1 : TIER2.includes(src) ? 2 : 3);
+
 export const clean = (s = "") => s.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
 export function press(url = "") {
   try {
@@ -61,9 +69,12 @@ export function group(items, ex = [], dayMs = 36 * 3600 * 1000, now = Date.now()
     const g = groups.find((x) => similar(x.head.w, a.w) >= 0.6);
     if (g) g.more.push(a); else groups.push({ head: a, more: [] });
   }
-  return groups.map(({ head, more }) => {
-    const srcs = new Set([head.src, ...more.map((m) => m.src)]);
-    return { id: head.id, title: head.title, sum: head.desc, link: head.link, src: head.src, t: head.t,
+  return groups.map(({ head: first, more: rest }) => {
+    // 대표 기사: 주요 언론사 먼저, 같은 등급이면 먼저 보도한 기사
+    const all = [first, ...rest].sort((a, b) => tier(a.src) - tier(b.src) || a.t - b.t);
+    const head = all[0], more = all.slice(1);
+    const srcs = new Set(all.map((m) => m.src));
+    return { id: head.id, title: head.title, sum: head.desc, link: head.link, src: head.src, t: Math.max(...all.map((m) => m.t)),
       media: srcs.size > 1 ? srcs.size : 0, rel: more.slice(0, 5).map((m) => [m.src, m.title, m.link]) };
   });
 }

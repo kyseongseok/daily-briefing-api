@@ -627,6 +627,11 @@ async function syncApi(method, body, code) {
   if (!r.ok) throw Object.assign(new Error(j.error || r.status), { status: r.status });
   S.sync.off = false; return j;
 }
+/* 서버가 준비됐는지 다시 확인 (없는 코드로 물어봐서 404면 준비 완료) */
+async function syncProbe() {
+  try { await syncApi("GET", null, "DB-2222-2222-2222"); } catch (e) { if (e.status === 404) S.sync.off = false; }
+  return !S.sync.off;
+}
 /* 바뀐 게 있으면 2초 뒤 저장 (savePrefs·saveDex에서 부름) */
 function syncSoon() {
   if (S.sync.applying) return;
@@ -676,7 +681,7 @@ function syncSheet(kind) {
 · 코드를 잃어버리면 되찾을 수 없어요. 카톡 '나와의 채팅'에 보내 두면 편해요.
 · 팀 초대 코드와는 달라요.</pre></div>
     <button type="button" class="cta" data-sync>${S.sync.code ? "내 코드 보기" : "동기화 시작하기"}</button>`;
-  if (S.sync.off) return head("PC·휴대폰 동기화") + `<div class="st-warn">동기화 서버를 준비하고 있어요. 조금 뒤에 다시 열어 주세요. 지금은 이 기기에만 저장돼요.<br><small>(서버에 SUPABASE_URL · SUPABASE_SECRET_KEY 설정이 아직 안 보여요)</small></div>`;
+  if (S.sync.off) return head("PC·휴대폰 동기화") + `<div class="st-warn">동기화 서버를 준비하고 있어요. 조금 뒤에 다시 열어 주세요. 지금은 이 기기에만 저장돼요.<br><small>(서버에 SUPABASE_URL · SUPABASE_SECRET_KEY 설정이 아직 안 보여요)</small></div><button type="button" class="cta" data-syncretry>다시 확인</button>`;
   const errBox = S.sync.err ? `<div class="st-warn" style="word-break:break-all">오류: ${esc(S.sync.err)}</div>` : "";
   if (!S.sync.code) return head("PC·휴대폰 동기화") + `<p class="tm-p">지금은 기록이 <b>이 기기에만</b> 저장돼요. 코드를 만들면 다른 기기에서도 같은 분야·스크랩·출석·도감을 볼 수 있어요.</p>
     ${errBox}<button type="button" class="cta" data-syncnew ${S.sync.busy ? "disabled" : ""}>이 기기에서 새 코드 만들기</button>
@@ -703,7 +708,8 @@ function bindSync(app, rerender) {
   app.addEventListener("click", async (e) => {
     const t = e.target.closest("button"); if (!t || !app.contains(t)) return;
     if (t.dataset.synchelp !== undefined) { S.sheet = { kind: "syncHelp" }; renderSheet(app); return; }
-    if (t.dataset.sync !== undefined) { S.sheet = { kind: "sync" }; renderSheet(app); if (S.sync.code) syncPull().then(redraw); return; }
+    if (t.dataset.sync !== undefined) { S.sheet = { kind: "sync" }; renderSheet(app); if (S.sync.code) syncPull().then(redraw); else syncProbe().then(redraw); return; }
+    if (t.dataset.syncretry !== undefined) { t.disabled = true; t.textContent = "확인 중…"; const ok = await syncProbe(); redraw(); toast(app, ok ? "동기화 서버가 준비됐어요" : "아직 준비 중이에요"); return; }
     if (t.dataset.synccopy === "code") { try { navigator.clipboard.writeText(S.sync.code).then(() => toast(app, "코드를 복사했어요"), () => toast(app, "복사하지 못했어요 · 코드를 길게 눌러 복사해 주세요")); } catch (err) {} return; }
     if (t.dataset.synccopy === "kakao") {
       const text = `DAILY BRIEFING 동기화 코드: ${S.sync.code}\n다른 기기의 설정 › PC·휴대폰 동기화에서 '다른 기기 코드로 연결'에 넣어 주세요.`;

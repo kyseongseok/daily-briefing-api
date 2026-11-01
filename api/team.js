@@ -15,6 +15,8 @@ const CODE_RE = /^TEAM-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/;
 const r4 = () => Array.from({ length: 4 }, () => ABC[randomInt(ABC.length)]).join("");
 const sha = (s) => createHash("sha256").update(String(s)).digest("hex");
 const cut = (s, n) => String(s || "").trim().slice(0, n);
+// 링크는 http(s) 주소만 저장 (javascript: 같은 주소 차단)
+const httpUrl = (u) => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : ""; } catch { return ""; } };
 const fail = (status, error) => Object.assign(new Error(error), { status, public: error });
 
 async function me(db, code, token) {
@@ -39,7 +41,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const code = String(req.query.code || "").toUpperCase();
-      const { team, m } = await me(db, code, String(req.query.token || ""));
+      const { team, m } = await me(db, code, String(req.headers["x-team-token"] || req.query.token || ""));
       const members = await db("GET", "team_members", `?team=eq.${code}&select=id,name&order=joined_at.asc`);
       const items = await db("GET", "team_items", `?team=eq.${code}&select=id,art,title,link,src,cat,note,member,who,created_at&order=created_at.desc&limit=300`);
       return res.status(200).json({ team, members, items, me: m.id });
@@ -70,13 +72,14 @@ export default async function handler(req, res) {
     const { team, m } = await me(db, code, String(b.token || ""));
     if (act === "add") {
       const it = b.item || {};
-      const row = { team: code, art: cut(it.art, 60), title: cut(it.title, 200), link: cut(it.link, 500), src: cut(it.src, 40), cat: cut(it.cat, 30), note: cut(it.note, 200), member: m.id, who: m.name };
+      const row = { team: code, art: cut(it.art, 60), title: cut(it.title, 200), link: httpUrl(cut(it.link, 500)), src: cut(it.src, 40), cat: cut(it.cat, 30), note: cut(it.note, 200), member: m.id, who: m.name };
       if (!row.art || !row.title) throw fail(400, "bad-item");
       try { const [item] = await db("POST", "team_items", "", row); return res.status(200).json({ item }); }
       catch (e) { if (e.status === 409) throw fail(409, "already"); throw e; }
     }
     if (act === "remove") {
       const id = Number(b.id);
+      if (!Number.isInteger(id) || id <= 0) throw fail(400, "bad-item");
       const [item] = await db("GET", "team_items", `?id=eq.${id}&team=eq.${code}&select=id,member`);
       if (!item) throw fail(404, "no-item");
       if (item.member !== m.id && team.owner !== m.id) throw fail(403, "not-allowed");

@@ -252,7 +252,7 @@ app.addEventListener("click", (e) => {
   if (b.dataset.tour !== undefined) { drawer = false; render(); tour(); return; }
   if (b.dataset.setmode) { S.mode = b.dataset.setmode; savePrefs(); render(); return; }
   if (b.dataset.size) { S.size = +b.dataset.size; savePrefs(); render(); return; }
-  if (b.dataset.delcat) { S.cats = S.cats.filter((c) => c.id !== b.dataset.delcat); savePrefs(); render(); return; }
+  if (b.dataset.delcat) { S.cats = S.cats.filter((c) => c.id !== b.dataset.delcat); pruneArts(); savePrefs(); render(); return; }
   if (b.dataset.refresh !== undefined) { refreshNews(app, b, render); return; }
   if (b.dataset.gonew !== undefined) { $$(".newpill", app).forEach((n) => n.remove()); tab = "topics"; FX.enter = ".main"; render(); window.scrollTo(0, 0); return; }
   if (b.dataset.hxgo !== undefined) { $$(".hx", app).forEach((n) => n.remove()); tab = "dex"; render(); window.scrollTo(0, 0); return; }

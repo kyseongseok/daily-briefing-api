@@ -230,7 +230,7 @@ app.addEventListener("click", (e) => {
   if (b.dataset.tmv) { topicMode = b.dataset.tmv; render(); $("#screen .scroll").scrollTop = 0; return; }
   if (b.dataset.mode && b.closest(".thumbs")) { S.mode = b.dataset.mode; savePrefs(); render(); return; }
   if (b.dataset.size) { S.size = +b.dataset.size; savePrefs(); render(); return; }
-  if (b.dataset.delcat) { S.cats = S.cats.filter((c) => c.id !== b.dataset.delcat); savePrefs(); render(); toast(app, "분야를 삭제했어요"); return; }
+  if (b.dataset.delcat) { S.cats = S.cats.filter((c) => c.id !== b.dataset.delcat); pruneArts(); savePrefs(); render(); toast(app, "분야를 삭제했어요"); return; }
   if (b.dataset.replay !== undefined) { playIntro(app); return; }
   if (b.dataset.tour !== undefined) { tour(); return; }
   if (b.dataset.a2hs !== undefined) { showA2HS(app); return; }

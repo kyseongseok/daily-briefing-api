@@ -10,7 +10,7 @@ import { supabase, readBody } from "./_supabase.js";
 
 const ABC = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"; // 헷갈리는 0·O·1·I 뺌
 const CODE_RE = /^DB-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/;
-const MAX = 300 * 1024; // 기록 크기 상한
+const MAX = 1024 * 1024; // 기록 크기 상한 (1MB)
 const newCode = () => "DB-" + [0, 1, 2].map(() => Array.from({ length: 4 }, () => ABC[randomInt(ABC.length)]).join("")).join("-");
 
 function db() { const sb = supabase(); return sb && ((method, query, body) => sb(method, "sync_profiles", query, body)); }
@@ -42,8 +42,15 @@ export default async function handler(req, res) {
     if (req.method === "PUT") {
       const code = String(body.code || "").trim().toUpperCase();
       if (!CODE_RE.test(code)) return res.status(400).json({ error: "bad-code" });
-      const rows = await q("PATCH", `?code=eq.${code}`, { data, updated_at: new Date().toISOString() });
-      if (!rows.length) return res.status(404).json({ error: "not-found" });
+      // base(이 기기가 마지막으로 받은 시각)가 서버 기록과 다르면 그사이 다른 기기가 올린 것 → 409, 기기가 다시 받아서 합침
+      // base가 없는 저장(배포 전 예전 화면이 켜져 있는 경우)은 받지 않음 → 예전 화면이 새 기록을 덮지 못하게. 새로고침하면 새 방식으로 맞춤
+      if (typeof body.base !== "string" || !body.base) return res.status(409).json({ error: "reload" });
+      const base = `&updated_at=eq.${encodeURIComponent(body.base)}`;
+      const rows = await q("PATCH", `?code=eq.${code}${base}`, { data, updated_at: new Date().toISOString() });
+      if (!rows.length) {
+        const exists = (await q("GET", `?code=eq.${code}&select=code`)).length;
+        return res.status(exists ? 409 : 404).json({ error: exists ? "conflict" : "not-found" });
+      }
       return res.status(200).json({ updated_at: rows[0].updated_at });
     }
     res.setHeader("Allow", "GET, POST, PUT");

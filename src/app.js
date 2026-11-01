@@ -52,7 +52,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&l
 const cat = (id) => S.cats.find((c) => c.id === id);
 const pal = (c) => PALETTE[c.p];
 const cvars = (c) => { const p = pal(c); return `--c:${p.c};--t:${p.t};--k:${p.k};--h:${p.h}`; };
-const artsOf = (id) => S.arts.filter((a) => a.cat === id);
+const artsOf = (id) => S.arts.filter((a) => (a.cats ? a.cats.includes(id) : a.cat === id));
 const mins = (t) => /분 전/.test(t) ? parseInt(t) : /시간 전/.test(t) ? parseInt(t) * 60 : 1440;
 const ICON = {
   dex: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H19v15H5.5A1.5 1.5 0 0 0 4 20.5z"/><path d="M4 20.5A1.5 1.5 0 0 0 5.5 22H19v-3"/><path d="M12 8.5l1 2 2.2.3-1.6 1.5.4 2.2-2-1-2 1 .4-2.2-1.6-1.5 2.2-.3z"/></svg>',
@@ -73,6 +73,10 @@ const ICON = {
 /* 날짜: 실제 오늘 */
 const TODAY = new Date();
 const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+// 밤새 켜 둔 화면은 날이 바뀐 뒤 다시 볼 때 새로 열어서 오늘 기사·출석·통계로 바꿈
+const BOOT_DAY = todayKey();
+const dayCheck = () => { if (document.visibilityState === "visible" && todayKey() !== BOOT_DAY) location.reload(); };
+document.addEventListener("visibilitychange", dayCheck); setInterval(dayCheck, 10 * 60000);
 const longDate = (d = new Date()) => `${d.getMonth() + 1}월 ${d.getDate()}일 ${WD_[d.getDay()]}요일`;
 const dotDate = (d = new Date()) => `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. ${WD_[d.getDay()]}요일`;
 const WD_ = ["일", "월", "화", "수", "목", "금", "토"];
@@ -87,16 +91,17 @@ function loadPrefs() {
     if (Array.isArray(p.scrap)) S.scrap = new Set(p.scrap);
     if (p.saved && typeof p.saved === "object") S.saved = p.saved;
     if (p.readDay === todayKey() && Array.isArray(p.read)) S.read = new Set(p.read); else S.read = new Set();
+    S.readDay = todayKey();
     // 예전 기본 분야(정책·제도 포함 4개)를 손대지 않고 쓰던 경우엔 새 기본 분야로 바꿈
     const oldDefault = !p.catsVer && Array.isArray(p.cats) && p.cats.map((c) => c.id).join() === "agri,sci,it,pol" && !p.cats.some((c) => c.user);
     if (Array.isArray(p.myTeams)) S.myTeams = p.myTeams.filter((t) => t && t.code && t.token);
     if (typeof p.nick === "string") S.nick = p.nick;
-    if (!oldDefault && Array.isArray(p.cats) && p.cats.length) S.cats = p.cats.map((c) => ({ ...c, count: artsOf(c.id).length }));
+    if (!oldDefault && Array.isArray(p.cats) && (p.cats.length || p.catsVer)) S.cats = p.cats.map((c) => ({ ...c, count: artsOf(c.id).length }));
   } catch (e) {}
 }
 function savePrefs() {
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify({ mode: S.mode, size: S.size, scrap: [...S.scrap], saved: Object.fromEntries([...S.scrap].filter((id) => S.saved[id]).map((id) => [id, S.saved[id]])), read: [...S.read], readDay: todayKey(), catsVer: 2, myTeams: S.myTeams, nick: S.nick,
+    localStorage.setItem(STORE_KEY, JSON.stringify({ mode: S.mode, size: S.size, scrap: [...S.scrap], saved: Object.fromEntries([...S.scrap].filter((id) => S.saved[id]).map((id) => [id, S.saved[id]])), read: [...S.read], readDay: S.readDay || todayKey(), catsVer: 2, myTeams: S.myTeams, nick: S.nick,
       cats: S.cats.map(({ id, name, p, words, ex, user }) => ({ id, name, p, words, ex, user })) }));
   } catch (e) {}
   syncSoon(); // 동기화 코드가 있으면 곧 서버에도 저장
@@ -110,39 +115,59 @@ const NEWS_KEY = "daily-briefing-news";
 S.live = false; S.saved = {};
 function ago(t) {
   const m = Math.max(0, Math.round((Date.now() - t) / 60000));
-  if (m < 1) return "방금"; if (m < 60) return `${m}분 전`; const h = Math.floor(m / 60); if (h < 24) return `${h}시간 전`; return "어제";
+  if (m < 1) return "방금"; if (m < 60) return `${m}분 전`; const h = Math.floor(m / 60); if (h < 24) return `${h}시간 전`; const d = Math.floor(h / 24); return d < 2 ? "어제" : `${d}일 전`;
 }
 function applyNews(byCat) {
+  // 같은 기사가 여러 분야 검색어에 걸리면 그 분야들 모두에 보여 줌 (cats), 대표 분야(cat)는 첫 번째
   const arts = [];
-  S.cats.forEach((c) => (byCat[c.id] || []).forEach((g) => { if (!arts.some((a) => a.id === g.id)) arts.push({ ...g, cat: c.id, time: ago(g.t), relCount: g.media > 1 ? g.media - 1 : (g.rel || []).length }); }));
-  // 오늘 꼭 볼 기사: 여러 매체가 다룬 소식 순, 같으면 주요 언론사 기사 먼저, 그다음 최신 순. 1위는 크게(요약·관련 기사), 2~5위는 번호 목록
-  const ranked = arts.slice().sort((a, b) => (b.media - a.media) || ((a.tier || 3) - (b.tier || 3)) || (b.t - a.t));
-  ranked.slice(0, 5).forEach((a, i) => { if (i === 0) a.top = true; else a.pick = i + 1; });
-  S.arts = arts;
-  S.cats.forEach((c) => { c.count = artsOf(c.id).length; });
+  S.cats.forEach((c) => (byCat[c.id] || []).forEach((g) => {
+    const had = arts.find((a) => a.id === g.id);
+    if (had) { if (!had.cats.includes(c.id)) had.cats.push(c.id); return; }
+    arts.push({ ...g, cat: c.id, cats: [c.id], time: ago(g.t), relCount: g.media > 1 ? g.media - 1 : (g.rel || []).length });
+  }));
+  S.arts = arts; rankArts();
   S.live = true;
 }
+// 오늘 꼭 볼 기사: 여러 매체가 다룬 소식 순, 같으면 주요 언론사 기사 먼저, 그다음 최신 순. 1위는 크게(요약·관련 기사), 2~5위는 번호 목록
+function rankArts() {
+  S.arts.forEach((a) => { delete a.top; delete a.pick; });
+  const ranked = S.arts.filter((a) => !a.t || Date.now() - a.t < 36 * 3600e3).sort((a, b) => (b.media - a.media) || ((a.tier || 3) - (b.tier || 3)) || (b.t - a.t));
+  ranked.slice(0, 5).forEach((a, i) => { if (i === 0) a.top = true; else a.pick = i + 1; });
+  S.cats.forEach((c) => { c.count = artsOf(c.id).length; });
+}
+// 분야를 지우면 그 분야로만 모인 기사는 바로 빼고 순위를 다시 매김
+function pruneArts() {
+  if (!S.live) return;
+  S.arts.forEach((a) => { a.cats = (a.cats || [a.cat]).filter((id) => cat(id)); a.cat = a.cats[0]; });
+  S.arts = S.arts.filter((a) => a.cats.length); rankArts();
+}
+let newsSeq = 0, lastByCat = {};
+// 분야마다 따로 불러옴. 한 분야가 실패하거나 늦어도 나머지는 보여 주고, 실패한 분야는 직전 기사를 유지
+// 더 나중에 시작한 불러오기가 있으면 이번 결과는 버림 (오래된 결과가 새 결과를 덮지 않게)
 async function fetchNews() {
-  const out = {};
-  await Promise.all(S.cats.map(async (c) => {
+  const my = ++newsSeq, out = {};
+  const rs = await Promise.allSettled(S.cats.map(async (c) => {
     const q = (c.words || []).join(","); if (!q) { out[c.id] = []; return; }
-    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 8000);
+    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 12000);
     try {
       const r = await fetch(`/api/news?q=${encodeURIComponent(q)}&ex=${encodeURIComponent((c.ex || []).join(","))}`, { signal: ctl.signal });
       if (!r.ok) throw new Error(r.status);
       out[c.id] = (await r.json()).items || [];
-    } finally { clearTimeout(tm); }
+    } catch (e) { if (lastByCat[c.id]) out[c.id] = lastByCat[c.id]; throw e; } finally { clearTimeout(tm); }
   }));
+  if (my !== newsSeq) throw Object.assign(new Error("stale"), { stale: true });
+  if (rs.every((r) => r.status === "rejected")) throw new Error("all failed");
+  lastByCat = { ...lastByCat, ...out };
   try { localStorage.setItem(NEWS_KEY, JSON.stringify({ day: todayKey(), at: Date.now(), byCat: out })); } catch (e) {}
   return out;
 }
 function loadCachedNews() {
-  try { const c = JSON.parse(localStorage.getItem(NEWS_KEY) || "null"); if (c && c.day === todayKey()) { applyNews(c.byCat); return true; } } catch (e) {}
+  try { const c = JSON.parse(localStorage.getItem(NEWS_KEY) || "null"); if (c && c.day === todayKey()) { lastByCat = c.byCat || {}; applyNews(c.byCat); return true; } } catch (e) {}
   return false;
 }
 /* 스크랩한 기사는 다음 날에도 보이게 따로 보관 */
 function rememberScrap(id) { const a = S.arts.find((x) => x.id === id); if (a) S.saved[id] = { id: a.id, cat: a.cat, title: a.title, src: a.src, link: a.link, t: a.t, time: a.time }; }
-function scrapList() { return [...S.scrap].map((id) => S.arts.find((a) => a.id === id) || S.saved[id]).filter(Boolean).map((a) => ({ ...a, time: a.t ? ago(a.t) : a.time })); }
+function scrapList() { return [...S.scrap].reverse().map((id) => S.arts.find((a) => a.id === id) || S.saved[id]).filter(Boolean).map((a) => ({ ...a, time: a.t ? ago(a.t) : a.time })); }
 /* 새로고침: 다시 불러와서 새로 생긴 기사 수를 알려 줌 */
 async function refreshNews(app, btn, rerender, onNew) {
   btn.classList.remove("spin"); void btn.offsetWidth; btn.classList.add("spin");
@@ -155,7 +180,7 @@ async function refreshNews(app, btn, rerender, onNew) {
     if (!fresh.length) { toast(app, "새 기사가 없어요 · 방금 확인했어요"); return; }
     const p = document.createElement("button"); p.type = "button"; p.className = "newpill"; p.dataset.gonew = ""; p.textContent = `새 기사 ${fresh.length}건 · 분야별에서 보기`; app.append(p);
     setTimeout(() => p.remove(), 5000); setTimeout(() => S.arts.forEach((a) => delete a.fresh), 2500);
-  } catch (e) { toast(app, "기사를 불러오지 못했어요 · 잠시 뒤 다시 눌러 주세요"); }
+  } catch (e) { if (!e.stale) toast(app, "기사를 불러오지 못했어요 · 잠시 뒤 다시 눌러 주세요"); }
 }
 /* 처음 열 때: 보관된 오늘 기사 → 바로 표시, 그 뒤 서버에서 최신으로 */
 async function bootNews(rerender) {
@@ -179,6 +204,8 @@ function itemHTML(a, opts = {}) {
     <div class="b"><button type="button" class="t" data-open="${a.id}">${esc(a.title)}</button><div class="m">${meta}</div></div>
     <div class="ibs"><button type="button" class="ib" data-scrap="${a.id}" aria-pressed="${S.scrap.has(a.id)}" aria-label="스크랩">${ICON.star}</button><button type="button" class="ib" data-share="${a.id}" aria-label="공유">${ICON.share}</button></div></article>`;
 }
+// 링크는 http(s)만 (javascript: 같은 주소가 섞여 들어와도 열리지 않게)
+const safeUrl = (u) => { try { const x = new URL(String(u || "")); return /^https?:$/.test(x.protocol) ? x.href : ""; } catch (e) { return ""; } };
 const relCount = (a) => a.relCount != null ? a.relCount : (a.rel || []).length;
 function topHTML(withRel = true) {
   const a = S.arts.find((x) => x.top); if (!a) return `<div class="none">오늘 기사를 불러오는 중이에요</div>`;
@@ -296,8 +323,9 @@ function bindCommon(app, rerender) {
   app.addEventListener("click", (e) => {
     const t = e.target.closest("button, [data-close]"); if (!t || !app.contains(t)) return;
     if (t.dataset.open) {
+      if (S.readDay !== todayKey()) { S.read = new Set(); S.readDay = todayKey(); } // 밤새 켜 둔 화면: 날이 바뀌면 오늘 읽음을 새로 셈
       const id = t.dataset.open, was = S.read.has(id), before = S.read.size; S.read.add(id); savePrefs(); if (!was) { DEX.reads += 1; saveDex(); }
-      const art = S.arts.find((a) => a.id === id); if (art && art.link) window.open(art.link, "_blank", "noopener");
+      const art = S.arts.find((a) => a.id === id); if (art && safeUrl(art.link)) window.open(safeUrl(art.link), "_blank", "noopener");
       if (!was) { FX.read = id; if (before < 3) FX.att = S.read.size; }
       if (!was && before < 3 && S.read.size >= 3) {
         FX.attDone = true;
@@ -307,7 +335,7 @@ function bindCommon(app, rerender) {
         if (DEX.days === 1) { const w = DEX.items.find((x) => x.id === "i-wave"); if (w && !owned(w)) { w.got = md(new Date()); FX.hatch = w.id; } saveDex(); }
         else if (DEX.days % 5 === 0) { const nx = pool[Math.floor(Math.random() * pool.length)]; if (nx) { nx.got = md(new Date()); nx.line = nx.line || "오늘 출석으로 만난 새 친구예요."; FX.hatch = nx.id; } saveDex(); }
         else { saveDex(); toast(app, `오늘 출석 완료! 다음 친구까지 출석 ${5 - (DEX.days % 5)}일`); }
-      } else if (!(art && art.link)) toast(app, "예시 기사예요 · 기사 연결 후 원문이 열려요");
+      } else if (!(art && safeUrl(art.link))) toast(app, "예시 기사예요 · 기사 연결 후 원문이 열려요");
       rerender(); return;
     }
     if (t.dataset.rel !== undefined) { S.relOpen = !S.relOpen; FX.relAnim = S.relOpen; rerender(); return; }
@@ -343,7 +371,7 @@ function bindCommon(app, rerender) {
     if (t.dataset.delask !== undefined) {
       const d = S.draft;
       if (!d.askDel) { d.askDel = true; renderSheet(app); return; }
-      const nm = cat(d.id).name; S.cats = S.cats.filter((c) => c.id !== d.id); savePrefs(); toast(app, `'${nm}' 분야를 삭제했어요`); closeSheet(app); rerender(); return;
+      const nm = cat(d.id).name; S.cats = S.cats.filter((c) => c.id !== d.id); pruneArts(); savePrefs(); toast(app, `'${nm}' 분야를 삭제했어요`); closeSheet(app); rerender(); return;
     }
     if (t.dataset.edit) { openSheet(app, "edit", t.dataset.edit); return; }
     if (t.dataset.dex) { openSheet(app, "dex", t.dataset.dex); return; }
@@ -524,7 +552,9 @@ const myTeam = (code) => S.myTeams.find((t) => t.code === code);
 const appUrl = () => location.origin + "/";
 function inviteText(t) { return `[DAILY BRIEFING] '${t.name}' 팀 스크랩함에 초대해요\n아래 링크를 누르면 바로 들어와요.\n${appUrl()}#join=${t.code}\n(초대 코드: ${t.code})`; }
 async function teamApi(method, body, q) {
-  const r = await fetch("/api/team" + (q ? "?" + new URLSearchParams(q) : ""), { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+  const headers = body ? { "Content-Type": "application/json" } : {};
+  if (q && q.token) { headers["X-Team-Token"] = q.token; q = { code: q.code }; } // 열쇠는 주소 대신 헤더로 (서버 기록에 남지 않게)
+  const r = await fetch("/api/team" + (q ? "?" + new URLSearchParams(q) : ""), { method, headers, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw Object.assign(new Error(j.error || r.status), { status: r.status, code: j.error });
   return j;
@@ -532,7 +562,9 @@ async function teamApi(method, body, q) {
 const TEAM_ERR = { "not-configured": "팀 서버 준비 중이에요", "no-team": "없거나 삭제된 팀이에요", "bad-code": "TEAM-XXXX-XXXX 모양의 코드를 넣어 주세요", "need-name": "이름을 넣어 주세요", already: "이미 이 팀에 담긴 기사예요", "not-allowed": "담은 사람이나 팀을 만든 사람만 할 수 있어요", "not-member": "이 팀에서 나간 상태예요" };
 const teamErr = (e) => TEAM_ERR[e.code] || "잠시 뒤 다시 해 주세요";
 /* 내 팀들 최신 내용 받기 */
+let teamSeq = 0;
 async function loadTeams() {
+  const my = ++teamSeq;
   const list = await Promise.all(S.myTeams.map(async (m) => {
     try { const j = await teamApi("GET", null, { code: m.code, token: m.token });
       m.name = j.team.name;
@@ -542,6 +574,7 @@ async function loadTeams() {
       const old = teamOf(m.code); return old || { id: m.code, code: m.code, name: m.name, members: [], items: [], me: m.member, isOwner: m.owner, offline: true };
     }
   }));
+  if (my !== teamSeq) return []; // 더 나중에 시작한 불러오기가 있으면 이번 결과는 버림
   const gone = list.filter((x) => x.gone).map((x) => x.gone);
   if (gone.length) { S.myTeams = S.myTeams.filter((m) => !gone.includes(m.code)); savePrefs(); }
   S.teams = list.filter((x) => !x.gone);
@@ -604,7 +637,7 @@ function teamBodyHTML(t) {
     <div class="tm-acts"><button type="button" data-invite="${t.id}">${ICON.team}팀원 초대</button>${n7 ? `<button type="button" data-weekly="${t.id}">${ICON.copy}이번 주 모음 복사</button>` : ""}<button type="button" data-tset="${t.id}">${ICON.gear}팀 관리</button></div></div>
     ${t.items.map((x) => { const c = S.cats.find((k) => k.name === x.cat); const can = x.member === t.me || t.isOwner;
       return `<article class="tcard"><div class="who"><span class="chip" style="background:#FFF4D6;color:#7A5A06">${esc(x.who)} 님이 담음</span>${x.cat ? (c ? chipCat(c) : `<span class="chip">${esc(x.cat)}</span>`) : ""}<span class="tdate">${shortDate(x.created_at)}</span>${can ? `<button type="button" class="tdel" data-tremove="${t.id}:${x.id}" aria-label="빼기">빼기</button>` : ""}</div>
-        ${x.link ? `<a class="tt" href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.title)}</a>` : `<div class="tt">${esc(x.title)}</div>`}${x.src ? `<small class="tsrc">${esc(x.src)}</small>` : ""}${x.note ? `<div class="note">${esc(x.note)}</div>` : ""}</article>`; }).join("")}`;
+        ${safeUrl(x.link) ? `<a class="tt" href="${esc(safeUrl(x.link))}" target="_blank" rel="noopener">${esc(x.title)}</a>` : `<div class="tt">${esc(x.title)}</div>`}${x.src ? `<small class="tsrc">${esc(x.src)}</small>` : ""}${x.note ? `<div class="note">${esc(x.note)}</div>` : ""}</article>`; }).join("")}`;
 }
 function bindTeams(app, rerender, onTeam) {
   const refresh = () => loadTeams().then((gone) => { rerender(); if (gone.length) toast(app, "삭제됐거나 나간 팀을 목록에서 뺐어요"); }).catch(() => {});
@@ -633,7 +666,7 @@ function bindTeams(app, rerender, onTeam) {
       t.disabled = true;
       try { const j = await teamApi("POST", { action: "create", name, nick });
         S.nick = nick; S.myTeams.push({ code: j.code, name: j.name, member: j.member, token: j.token, owner: true }); savePrefs();
-        await loadTeams(); S.justMade = j.code; S.sheet = { kind: "invite", arg: j.code }; renderSheet(app); onTeam(j.code); rerender();
+        await loadTeams(); if (!teamOf(j.code)) await loadTeams(); S.justMade = j.code; S.sheet = { kind: "invite", arg: j.code }; renderSheet(app); onTeam(j.code); rerender();
       } catch (err) { t.disabled = false; toast(app, teamErr(err)); }
       return;
     }
@@ -656,18 +689,23 @@ function bindTeams(app, rerender, onTeam) {
       copy(t.dataset.inv === "link" ? link : text, t.dataset.inv === "link" ? "초대 링크를 복사했어요" : "초대 문구를 복사했어요"); return;
     }
     if (t.dataset.tadd) {
-      const a = findArt(t.dataset.tadd), tm = teamOf(S.teamPick || S.teams[0].id), mt = myTeam(tm.code), c = cat(a.cat);
+      const a = findArt(t.dataset.tadd), tm = teamOf(S.teamPick) || S.teams[0], mt = tm && myTeam(tm.code);
+      if (!a || !tm || !mt) { closeSheet(app); toast(app, "다시 한 번 시도해 주세요"); return; }
+      const c = cat(a.cat);
       t.disabled = true;
       try { await teamApi("POST", { action: "add", code: tm.code, token: mt.token, item: { art: a.id, title: a.title, link: a.link || "", src: a.src || "", cat: c ? c.name : "", note: (($("#f-note", app) || {}).value || "").trim() } });
         DEX.shares += 1; saveDex(); closeSheet(app); await loadTeams(); rerender(); toast(app, `'${tm.name}'에 담았어요`);
-      } catch (err) { t.disabled = false; toast(app, teamErr(err)); }
+      } catch (err) { t.disabled = false; toast(app, teamErr(err)); if (err.status === 403 || err.status === 404) { closeSheet(app); refresh(); } }
       return;
     }
     if (t.dataset.tremove) {
       const [tid, id] = t.dataset.tremove.split(":"), tm = teamOf(tid), mt = myTeam(tid);
       if (!t.dataset.ask) { t.dataset.ask = "1"; t.textContent = "한 번 더"; t.classList.add("ask"); setTimeout(() => { if (t.isConnected) { delete t.dataset.ask; t.textContent = "빼기"; t.classList.remove("ask"); } }, 3000); return; }
-      try { await teamApi("POST", { action: "remove", code: tm.code, token: mt.token, id }); tm.items = tm.items.filter((x) => String(x.id) !== id); rerender(); toast(app, "팀 스크랩함에서 뺐어요"); }
-      catch (err) { toast(app, teamErr(err)); }
+      try { await teamApi("POST", { action: "remove", code: tm.code, token: mt.token, id: Number(id) }); tm.items = tm.items.filter((x) => String(x.id) !== id); rerender(); toast(app, "팀 스크랩함에서 뺐어요"); }
+      catch (err) {
+        if (err.code === "no-item") { tm.items = tm.items.filter((x) => String(x.id) !== id); rerender(); toast(app, "이미 빠진 기사예요"); }
+        else { toast(app, teamErr(err)); if (err.status === 403 || err.status === 404) refresh(); }
+      }
       return;
     }
     if (t.dataset.tleave || t.dataset.tdel) {
@@ -692,14 +730,17 @@ function bindTeams(app, rerender, onTeam) {
 /* ── PC·휴대폰 동기화 (/api/sync → Supabase) ──
    - 로그인 대신 동기화 코드(DB-XXXX-XXXX-XXXX). 같은 코드를 넣은 기기는 같은 기록(분야·스크랩·출석·도감)을 씀
    - 바뀌면 2초 뒤 서버에 저장, 앱을 다시 볼 때마다 서버 기록을 받아 합침 */
-const SYNC_KEY = "daily-briefing-sync";
-S.sync = { code: "", at: "", dirty: false, dev: "", devices: {}, off: false, busy: false, last: 0 };
-let syncTimer = null, syncRerender = () => {};
-function saveSync() { try { const { code, at, dirty, dev, devices, last } = S.sync; localStorage.setItem(SYNC_KEY, JSON.stringify({ code, at, dirty, dev, devices, last })); } catch (e) {} }
+const SYNC_KEY = "daily-briefing-sync", SYNC_BASE_KEY = "daily-briefing-sync-base";
+S.sync = { code: "", at: "", dev: "", devices: {}, off: false, busy: false, last: 0, gen: 0, pending: false };
+let syncTimer = null, syncRerender = () => {}, syncChain = Promise.resolve();
+function saveSync() { try { const { code, at, dev, devices, last, pending } = S.sync; localStorage.setItem(SYNC_KEY, JSON.stringify({ code, at, dev, devices, last, pending })); } catch (e) {} }
 function loadSync() {
   try { Object.assign(S.sync, JSON.parse(localStorage.getItem(SYNC_KEY) || "{}")); } catch (e) {}
   if (!S.sync.dev) { S.sync.dev = "d" + Math.random().toString(36).slice(2, 10); saveSync(); }
 }
+// 마지막으로 서버와 맞춘 기록 (3-way 합치기의 기준점)
+function loadBase() { try { return JSON.parse(localStorage.getItem(SYNC_BASE_KEY) || "null"); } catch (e) { return null; } }
+function saveBase(d) { try { if (d) localStorage.setItem(SYNC_BASE_KEY, JSON.stringify(d)); else localStorage.removeItem(SYNC_BASE_KEY); } catch (e) {} }
 function devName() {
   const u = navigator.userAgent;
   if (/iPhone/.test(u)) return "아이폰"; if (/iPad/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1)) return "아이패드";
@@ -707,35 +748,73 @@ function devName() {
   if (/Windows/.test(u)) return "PC (Windows)"; if (/Macintosh/.test(u)) return "Mac"; return "PC";
 }
 const readLS = (k) => { try { return JSON.parse(localStorage.getItem(k) || "{}"); } catch (e) { return {}; } };
-function snapshot() { return { v: 1, prefs: readLS(STORE_KEY), dex: readLS(DEX_KEY), devices: { ...S.sync.devices, [S.sync.dev]: { name: devName(), at: Date.now() } } }; }
+function snapshot() {
+  const mine = (S.sync.devices || {})[S.sync.dev];
+  const at = mine && Date.now() - mine.at < 3600e3 ? mine.at : Date.now(); // 마지막 사용 시각은 1시간 단위로만 갱신 (매번 저장할 거리가 생기지 않게)
+  return { v: 2, prefs: readLS(STORE_KEY), dex: readLS(DEX_KEY), devices: { ...S.sync.devices, [S.sync.dev]: { name: devName(), at } } };
+}
 const dayNum = (k) => { const [y, m, d] = String(k || "0-0-0").split("-").map(Number); return (y || 0) * 10000 + (m || 0) * 100 + (d || 0); };
-const uniq = (...xs) => [...new Set(xs.flat().filter(Boolean))];
-// 서버 기록(r)과 이 기기 기록(l)을 합침. 이 기기에서 바꾼 게 없으면 서버 쪽을 따르고, 있으면 스크랩 등은 합치고 설정은 이 기기 것을 씀
-function mergeData(r, l, dirty) {
-  const rp = r.prefs || {}, lp = l.prefs || {};
-  let p;
-  if (!dirty) p = { ...lp, ...rp };
-  else {
-    p = { ...rp, ...lp, scrap: uniq(rp.scrap || [], lp.scrap || []), saved: { ...(rp.saved || {}), ...(lp.saved || {}) } };
-    if (rp.readDay === lp.readDay) p.read = uniq(rp.read || [], lp.read || []);
-    // 팀 목록은 합침 (나간 팀은 다음에 불러올 때 서버가 알려 줘서 빠짐)
-    const tm = [...(rp.myTeams || []), ...(lp.myTeams || [])]; p.myTeams = tm.filter((t, i) => tm.findIndex((x) => x.code === t.code) === i);
+const uniq = (...xs) => [...new Set(xs.flat().filter((x) => x != null && x !== ""))];
+// 순서와 상관없이 내용이 같은지 (키 순서가 달라도 같은 것으로 봄)
+const stable = (v) => Array.isArray(v) ? `[${v.map(stable).join(",")}]` : v && typeof v === "object" ? `{${Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + stable(v[k])).join(",")}}` : JSON.stringify(v ?? null);
+const same = (a, b) => stable(a) === stable(b);
+// 목록 3-way: 서버 목록에 '이 기기에서 더한 것'은 더하고 '이 기기에서 뺀 것'은 뺌
+function setMerge(b, l, s, key = (x) => x) {
+  const K = (arr) => new Map((arr || []).map((x) => [key(x), x]));
+  const bm = K(b), lm = K(l), out = K(s);
+  bm.forEach((_, k) => { if (!lm.has(k)) out.delete(k); });
+  lm.forEach((v, k) => { if (!bm.has(k)) out.set(k, v); });
+  return [...out.values()];
+}
+// 분야 3-way: 이 기기에서 더하거나 고친 분야는 이 기기 것, 지운 분야는 지움, 나머지는 서버 것
+function catMerge(b, l, s) {
+  const bm = new Map((b || []).map((c) => [c.id, c])), lm = new Map((l || []).map((c) => [c.id, c]));
+  let out = (s || []).filter((c) => !(bm.has(c.id) && !lm.has(c.id)));
+  lm.forEach((c, id) => {
+    const i = out.findIndex((x) => x.id === id);
+    if (!bm.has(id) || !same(c, bm.get(id))) { if (i >= 0) out[i] = c; else out.push(c); }
+  });
+  return out;
+}
+function mergeDex(ld, sd) {
+  const sFirst = (sd.days || 0) > (ld.days || 0) || ((sd.days || 0) === (ld.days || 0) && dayNum(sd.last) >= dayNum(ld.last));
+  const hi = sFirst ? sd : ld, lo = sFirst ? ld : sd;
+  return { ...lo, ...hi, reads: Math.max(sd.reads || 0, ld.reads || 0), shares: Math.max(sd.shares || 0, ld.shares || 0),
+    got: { ...(lo.got || {}), ...(hi.got || {}) }, goldEgg: hi.goldEgg != null ? hi.goldEgg : lo.goldEgg ?? null };
+}
+/* 합치기: base = 마지막으로 맞춘 기록, l = 이 기기, s = 서버
+   - base가 없으면(처음 연결) 설정·분야는 서버 것, 스크랩·팀·출석은 합침
+   - base가 있으면 이 기기에서 바뀐 것만 서버 기록 위에 얹음 (지운 것도 지운 대로) */
+function merge3(base, l, s) {
+  const bp = base && base.prefs, lp = l.prefs || {}, sp = s.prefs || {};
+  const SPECIAL = ["scrap", "saved", "read", "readDay", "myTeams", "cats"];
+  const p = {};
+  const keys = uniq(Object.keys(lp), Object.keys(sp));
+  keys.filter((k) => !SPECIAL.includes(k)).forEach((k) => { p[k] = !bp ? (k in sp ? sp[k] : lp[k]) : (same(lp[k], bp[k]) ? sp[k] : lp[k]); });
+  if (!bp) {
+    p.scrap = uniq(sp.scrap || [], lp.scrap || []);
+    p.myTeams = setMerge([], lp.myTeams, sp.myTeams, (t) => t.code);
+    p.cats = Array.isArray(sp.cats) && (sp.cats.length || sp.catsVer) ? sp.cats : lp.cats;
+  } else {
+    p.scrap = setMerge(bp.scrap, lp.scrap, sp.scrap);
+    p.myTeams = setMerge(bp.myTeams, lp.myTeams, sp.myTeams, (t) => t.code);
+    p.cats = catMerge(bp.cats, lp.cats, sp.cats);
   }
-  const rd = r.dex || {}, ld = l.dex || {};
-  const rFirst = (rd.days || 0) > (ld.days || 0) || ((rd.days || 0) === (ld.days || 0) && dayNum(rd.last) >= dayNum(ld.last));
-  const base = rFirst ? rd : ld, other = rFirst ? ld : rd;
-  const dex = { ...other, ...base, reads: Math.max(rd.reads || 0, ld.reads || 0), shares: Math.max(rd.shares || 0, ld.shares || 0),
-    got: { ...(other.got || {}), ...(base.got || {}) }, goldEgg: base.goldEgg != null ? base.goldEgg : other.goldEgg ?? null };
-  return { v: 1, prefs: p, dex, devices: { ...(r.devices || {}), ...(l.devices || {}) } };
+  const sv = { ...(sp.saved || {}), ...(lp.saved || {}) }; p.saved = Object.fromEntries(p.scrap.filter((id) => sv[id]).map((id) => [id, sv[id]]));
+  if (lp.readDay === sp.readDay) { p.readDay = lp.readDay; p.read = uniq(sp.read || [], lp.read || []); }
+  else { const later = dayNum(lp.readDay) >= dayNum(sp.readDay) ? lp : sp; p.readDay = later.readDay; p.read = later.read || []; }
+  Object.keys(p).forEach((k) => p[k] === undefined && delete p[k]);
+  return { v: 2, prefs: p, dex: mergeDex(l.dex || {}, s.dex || {}), devices: { ...(s.devices || {}), ...(l.devices || {}) } };
 }
 function applyData(d) {
   const before = JSON.stringify(S.cats.map((c) => [c.id, c.words, c.ex]));
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(d.prefs || {})); localStorage.setItem(DEX_KEY, JSON.stringify(d.dex || {})); } catch (e) {}
-  S.sync.devices = d.devices || {};
   const teamsBefore = S.myTeams.map((t) => t.code).join();
+  S.sync.applying = true;
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(d.prefs || {})); localStorage.setItem(DEX_KEY, JSON.stringify(d.dex || {})); } catch (e) {}
   loadPrefs(); loadDex();
+  S.sync.applying = false;
   if (S.myTeams.map((t) => t.code).join() !== teamsBefore) loadTeams().then(() => syncRerender()).catch(() => {});
-  if (JSON.stringify(S.cats.map((c) => [c.id, c.words, c.ex])) !== before) fetchNews().then((n) => { applyNews(n); syncRerender(); }).catch(() => {});
+  if (JSON.stringify(S.cats.map((c) => [c.id, c.words, c.ex])) !== before) { pruneArts(); fetchNews().then((n) => { applyNews(n); syncRerender(); }).catch(() => {}); }
 }
 async function syncApi(method, body, code) {
   const r = await fetch("/api/sync" + (code ? `?code=${encodeURIComponent(code)}` : ""), { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
@@ -749,34 +828,43 @@ async function syncProbe() {
   try { await syncApi("GET", null, "DB-2222-2222-2222"); } catch (e) { if (e.status === 404) S.sync.off = false; }
   return !S.sync.off;
 }
-/* 바뀐 게 있으면 2초 뒤 저장 (savePrefs·saveDex에서 부름) */
+/* 바뀐 게 있으면 1.5초 뒤 맞추기 (savePrefs·saveDex에서 부름) */
 function syncSoon() {
   if (S.sync.applying) return;
-  S.sync.dirty = true; saveSync();
+  S.sync.gen++; S.sync.pending = true; saveSync();
   if (!S.sync.code) return;
-  clearTimeout(syncTimer); syncTimer = setTimeout(syncPush, 2000);
+  clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 1500);
 }
-async function syncPush() {
-  if (!S.sync.code) return;
-  try {
-    const data = snapshot(); const j = await syncApi("PUT", { code: S.sync.code, data });
-    S.sync.at = j.updated_at; S.sync.dirty = false; S.sync.devices = data.devices; S.sync.last = Date.now(); saveSync();
-  } catch (e) { if (e.status === 404) { S.sync.lost = true; saveSync(); } }
-}
-/* 서버 기록 받아서 합치기 (앱 열 때, 다시 볼 때) */
-async function syncPull() {
-  if (!S.sync.code || S.sync.busy) return;
+/* 맞추기는 한 번에 하나씩 차례로 (받기·합치기·올리기를 한 묶음으로) */
+function syncNow() { const run = () => syncOnce().catch(() => {}); syncChain = syncChain.then(run, run); return syncChain; }
+async function syncOnce() {
+  const code = S.sync.code; if (!code) return;
   S.sync.busy = true;
   try {
-    const j = await syncApi("GET", null, S.sync.code);
-    if (j.updated_at !== S.sync.at) {
-      S.sync.applying = true; applyData(mergeData(j.data || {}, snapshot(), S.sync.dirty)); S.sync.applying = false;
-      S.sync.at = j.updated_at; saveSync(); syncRerender();
+    for (let i = 0; i < 4; i++) {
+      const g = S.sync.gen;
+      const srv = await syncApi("GET", null, code);
+      if (S.sync.code !== code) return; // 그사이 연결을 끊었으면 버림
+      const local = snapshot(), merged = merge3(loadBase(), local, srv.data || {});
+      if (!same(merged.prefs, local.prefs) || !same(merged.dex, local.dex)) { applyData(merged); syncRerender(); }
+      saveBase(srv.data || null); // 서버 내용을 받아 반영했으니 기준점은 서버 기록 (올리기가 실패해도 다음에 바르게 합쳐지게)
+      let at = srv.updated_at;
+      const sd = srv.data || {};
+      if (!same(merged.prefs, sd.prefs) || !same(merged.dex, sd.dex) || !same(merged.devices, sd.devices)) {
+        try { const j = await syncApi("PUT", { code, data: merged, base: srv.updated_at }); at = j.updated_at; }
+        catch (e) { if (e.status === 409 && i < 3) continue; throw e; } // 그사이 다른 기기가 올렸으면 다시 받아서 합침
+      }
+      if (S.sync.code !== code) return;
+      saveBase(merged); S.sync.at = at; S.sync.devices = merged.devices; S.sync.last = Date.now(); S.sync.lost = false; S.sync.err = "";
+      if (S.sync.gen === g) S.sync.pending = false;
+      saveSync(); return;
     }
-    S.sync.last = Date.now(); saveSync();
-    if (S.sync.dirty || !(S.sync.devices || {})[S.sync.dev]) await syncPush();
-  } catch (e) { S.sync.applying = false; if (e.status === 404) { S.sync.lost = true; } }
-  finally { S.sync.busy = false; }
+  } catch (e) {
+    if (e.status === 404) S.sync.lost = true;
+    else if (e.status === 413) S.sync.err = "저장된 기록이 너무 커서 맞추지 못했어요";
+    else if (e.status === 409) S.sync.err = "다른 기기와 동시에 저장하느라 잠시 못 맞췄어요 · 곧 다시 맞춰요";
+    saveSync();
+  } finally { S.sync.busy = false; }
 }
 function syncLine() {
   if (S.sync.code) return `연결됨 · ${S.sync.code}`;
@@ -820,12 +908,13 @@ function bindSync(app, rerender) {
   loadSync();
   const redraw = () => { if (S.sheet && S.sheet.kind.startsWith("sync")) renderSheet(app); syncRerender(); };
   // 앱을 다시 볼 때마다 서버 기록 받아오기
-  syncPull().then(redraw);
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") syncPull().then(redraw); else if (S.sync.dirty) syncPush(); });
+  syncNow().then(redraw);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" || S.sync.pending) syncNow().then(redraw); });
+  setInterval(() => { if (document.visibilityState === "visible" && S.sync.code) syncNow().then(redraw); }, 60000); // 켜 둔 화면도 1분마다 맞춤
   app.addEventListener("click", async (e) => {
     const t = e.target.closest("button"); if (!t || !app.contains(t)) return;
     if (t.dataset.synchelp !== undefined) { S.sheet = { kind: "syncHelp" }; renderSheet(app); return; }
-    if (t.dataset.sync !== undefined) { S.sheet = { kind: "sync" }; renderSheet(app); if (S.sync.code) syncPull().then(redraw); else syncProbe().then(redraw); return; }
+    if (t.dataset.sync !== undefined) { S.sheet = { kind: "sync" }; renderSheet(app); if (S.sync.code) syncNow().then(redraw); else syncProbe().then(redraw); return; }
     if (t.dataset.syncretry !== undefined) { t.disabled = true; t.textContent = "확인 중…"; const ok = await syncProbe(); redraw(); toast(app, ok ? "동기화 서버가 준비됐어요" : "아직 준비 중이에요"); return; }
     if (t.dataset.synccopy === "code") { try { navigator.clipboard.writeText(S.sync.code).then(() => toast(app, "코드를 복사했어요"), () => toast(app, "복사하지 못했어요 · 코드를 길게 눌러 복사해 주세요")); } catch (err) {} return; }
     if (t.dataset.synccopy === "kakao") {
@@ -834,14 +923,14 @@ function bindSync(app, rerender) {
       else { try { navigator.clipboard.writeText(text).then(() => toast(app, "복사했어요 · 카카오톡 '나와의 채팅'에 붙여넣으세요")); } catch (err) {} }
       return;
     }
-    if (t.dataset.syncnow !== undefined) { await syncPull(); if (S.sync.dirty) await syncPush(); redraw(); toast(app, S.sync.off ? "동기화 서버 준비 중이에요" : "다른 기기와 맞췄어요"); return; }
+    if (t.dataset.syncnow !== undefined) { t.disabled = true; await syncNow(); redraw(); toast(app, S.sync.off ? "동기화 서버 준비 중이에요" : S.sync.lost || S.sync.err ? "맞추지 못했어요" : "다른 기기와 맞췄어요"); return; }
     if (t.dataset.syncoff !== undefined) {
       if (!t.dataset.ask) { t.dataset.ask = "1"; t.textContent = "한 번 더 누르면 끊겨요 (기록은 이 기기에 남아요)"; return; }
-      Object.assign(S.sync, { code: "", at: "", lost: false, devices: {} }); saveSync(); renderSheet(app); toast(app, "이 기기 연결을 끊었어요"); return;
+      clearTimeout(syncTimer); Object.assign(S.sync, { code: "", at: "", lost: false, devices: {}, err: "" }); saveBase(null); saveSync(); renderSheet(app); toast(app, "이 기기 연결을 끊었어요"); return;
     }
     if (t.dataset.syncnew !== undefined) {
       S.sync.busy = true; renderSheet(app);
-      try { const data = snapshot(); const j = await syncApi("POST", { data }); Object.assign(S.sync, { code: j.code, at: j.updated_at, dirty: false, devices: data.devices, last: Date.now(), lost: false }); saveSync(); toast(app, "코드를 만들었어요 · 다른 기기에 넣어 주세요"); }
+      try { const data = snapshot(); const j = await syncApi("POST", { data }); Object.assign(S.sync, { code: j.code, at: j.updated_at, pending: false, devices: data.devices, last: Date.now(), lost: false, err: "" }); saveBase(data); saveSync(); toast(app, "코드를 만들었어요 · 다른 기기에 넣어 주세요"); }
       catch (err) { S.sync.err = err.off ? "" : String(err.message || err); toast(app, err.off ? "동기화 서버 준비 중이에요" : "코드를 만들지 못했어요 · 아래 오류 내용을 알려 주세요"); }
       S.sync.busy = false; renderSheet(app); return;
     }
@@ -850,11 +939,10 @@ function bindSync(app, rerender) {
       if (!/^DB-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/.test(v)) { toast(app, "DB-XXXX-XXXX-XXXX 모양의 코드를 넣어 주세요"); return; }
       if (v === S.sync.code) { toast(app, "이미 이 코드로 연결돼 있어요"); return; }
       try {
-        const j = await syncApi("GET", null, v);
-        S.sync.applying = true; applyData(mergeData(j.data || {}, snapshot(), true)); S.sync.applying = false; // 두 기기 기록을 합침
-        Object.assign(S.sync, { code: v, at: j.updated_at, dirty: true, lost: false }); saveSync();
-        await syncPush(); renderSheet(app); syncRerender(); toast(app, "연결했어요 · 두 기기의 기록을 합쳤어요");
-      } catch (err) { S.sync.applying = false; toast(app, err.off ? "동기화 서버 준비 중이에요" : err.status === 404 ? "없는 코드예요 · 다시 확인해 주세요" : "연결하지 못했어요 · 잠시 뒤 다시 해 주세요"); }
+        await syncApi("GET", null, v); // 있는 코드인지 먼저 확인
+        clearTimeout(syncTimer); Object.assign(S.sync, { code: v, at: "", lost: false, err: "" }); saveBase(null); saveSync(); // 기준점 없이 합치기: 설정·분야는 그 코드 것, 스크랩·팀·출석은 합침
+        await syncNow(); renderSheet(app); syncRerender(); toast(app, S.sync.lost ? "연결하지 못했어요" : "연결했어요 · 두 기기의 기록을 합쳤어요");
+      } catch (err) { toast(app, err.off ? "동기화 서버 준비 중이에요" : err.status === 404 ? "없는 코드예요 · 다시 확인해 주세요" : "연결하지 못했어요 · 잠시 뒤 다시 해 주세요"); }
       return;
     }
   });
@@ -935,7 +1023,7 @@ function statsHTML(wide) {
     <section class="st-card"><h3>${D.weekly ? "주별" : "일별"} 기사 수 <small>${D.weekly ? "오늘은 집계 중이라 연하게 표시" : "막대를 누르면 그날 기사를 볼 수 있어요"}</small></h3>${chartSVG(D, wide ? 1120 : 340)}</section>
     <div class="st-cols">
     <section class="st-card"><h3>많이 다룬 매체 <small>이 기간 상위 5</small></h3>${D.media.length ? D.media.map(([m, n], i) => `<div class="st-bar"><span>${i + 1}. ${esc(m)}</span><i><em style="width:${n / D.media[0][1] * 100}%;background:#34A98A"></em></i><b>${n}</b></div>`).join("") : `<div class="st-note small">아직 기사가 없어요</div>`}</section>
-    <section class="st-card"><h3>오늘 많이 보도된 소식 <small>여러 매체가 함께 다룬 기사</small></h3>${issues.length ? issues.map(([t, n, link], i) => `<a class="st-rank" href="${esc(link)}" target="_blank" rel="noopener"><em>${i + 1}</em><span>${esc(t)}</span><b>${n}개 매체</b></a>`).join("") : `<div class="st-note small">여러 매체가 함께 다룬 소식이 아직 없어요</div>`}</section>
+    <section class="st-card"><h3>오늘 많이 보도된 소식 <small>여러 매체가 함께 다룬 기사</small></h3>${issues.length ? issues.map(([t, n, link], i) => `<a class="st-rank" href="${esc(safeUrl(link))}" target="_blank" rel="noopener"><em>${i + 1}</em><span>${esc(t)}</span><b>${n}개 매체</b></a>`).join("") : `<div class="st-note small">여러 매체가 함께 다룬 소식이 아직 없어요</div>`}</section>
     </div>
     <div class="st-note small">네이버 뉴스 검색 기준 · 30분마다 갱신 · 같은 소식을 여러 매체가 쓰면 각각 셉니다.</div>
   </div>`;
@@ -946,7 +1034,7 @@ function statDaySheet(k) {
   if (!v) return head + `<div class="st-note">이날 기사 목록이 없어요.</div>`;
   const list = v.list || [];
   return head + `<p class="tm-p">모두 <b>${v.n}건</b>${k === dKey(new Date()) ? " (오늘, 집계 중)" : ""} · 같은 소식은 묶어서 여러 매체가 다룬 순으로 보여 줘요${list.length >= 80 ? " (상위 80개 소식)" : ""}.</p>
-    <div class="sd-list">${list.map(([t, src, link, media, at]) => `<a class="sd-it" href="${esc(link)}" target="_blank" rel="noopener"><span class="sd-t">${esc(t)}</span><span class="sd-m">${esc(src)}${media > 1 ? ` · <b>${media}개 매체</b>` : ""} · ${new Date(at).getHours()}시</span></a>`).join("") || `<div class="st-note">목록을 불러오지 못했어요. 새로고침 후 다시 열어 주세요.</div>`}</div>`;
+    <div class="sd-list">${list.map(([t, src, link, media, at]) => `<a class="sd-it" href="${esc(safeUrl(link))}" target="_blank" rel="noopener"><span class="sd-t">${esc(t)}</span><span class="sd-m">${esc(src)}${media > 1 ? ` · <b>${media}개 매체</b>` : ""} · ${new Date(at).getHours()}시</span></a>`).join("") || `<div class="st-note">목록을 불러오지 못했어요. 새로고침 후 다시 열어 주세요.</div>`}</div>`;
 }
 function bindStats(app, rerender) {
   const openDay = (el) => { S.sheet = { kind: "statDay", arg: el.dataset.sday }; renderSheet(app); };
@@ -1072,7 +1160,7 @@ function startTour(app, goTab, rerender) {
     if (b.dataset.tprev !== undefined) { i = Math.max(0, i - 1); draw(); return; }
     if (b.dataset.tskip !== undefined) { i = TOUR.length - 1; draw(); return; }
     if (b.dataset.tadd !== undefined) { finish(true); return; }
-    if (b.dataset.twdel) { const [id, k] = b.dataset.twdel.split(":"); draft.find((x) => x.id === id).words.splice(+k, 1); draw("tw-" + id); return; }
+    if (b.dataset.twdel) { const [id, k] = b.dataset.twdel.split(":"), d = draft.find((x) => x.id === id); if (d.words.length <= 1) { toast(app, "검색어는 하나 이상 있어야 해요"); return; } d.words.splice(+k, 1); draw("tw-" + id); return; }
   });
   el.addEventListener("submit", (e) => { const f = e.target.closest("[data-twf]"); if (!f) return; e.preventDefault(); e.stopPropagation(); addWord($("input", f)); });
   draw();

@@ -37,7 +37,9 @@ export function press(url = "") {
   } catch { return "뉴스"; }
 }
 function hash(s) { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
-const words = (t) => new Set(t.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length >= 2));
+// 제목 단어 (조사 '은·는·이·가·을·를·의·에·도·와·과·로'는 떼고 비교: '농촌진흥청은' = '농촌진흥청이')
+const JOSA = /(으로|에서|에게|까지|부터|은|는|이|가|을|를|의|에|도|와|과|로)$/;
+const words = (t) => new Set(t.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).map((w) => (w.length >= 3 ? w.replace(JOSA, "") : w)).filter((w) => w.length >= 2));
 // 제목 단어가 3개 이상 겹치고, 짧은 쪽 제목의 60% 이상이 같으면 같은 소식으로 본다
 function similar(a, b) { let n = 0; for (const w of a) if (b.has(w)) n++; return n >= 3 ? n / Math.min(a.size, b.size || 1) : 0; }
 
@@ -61,7 +63,7 @@ export function group(items, ex = [], dayMs = 36 * 3600 * 1000, now = Date.now()
     if (exl.some((e) => low.includes(e))) continue;
     const key = title.replace(/\s+/g, "");
     if (seen.has(key)) continue; seen.add(key);
-    list.push({ id: "n" + hash(link || title), title, desc, link: it.link || link, src: press(it.originallink || it.link), t, w: words(title) });
+    list.push({ id: "n" + hash(link || title), title, desc, link: it.link || link, raw: link, src: press(it.originallink || it.link), t, w: words(title) });
   }
   list.sort((a, b) => b.t - a.t);
   const groups = [];
@@ -74,8 +76,9 @@ export function group(items, ex = [], dayMs = 36 * 3600 * 1000, now = Date.now()
     const all = [first, ...rest].sort((a, b) => tier(a.src) - tier(b.src) || a.t - b.t);
     const head = all[0], more = all.slice(1);
     const srcs = new Set(all.map((m) => m.src));
-    return { id: head.id, title: head.title, sum: head.desc, link: head.link, src: head.src, tier: tier(head.src), t: Math.max(...all.map((m) => m.t)),
-      media: srcs.size > 1 ? srcs.size : 0, rel: more.slice(0, 5).map((m) => [m.src, m.title, m.link]) };
+    const earliest = all.reduce((a, b) => (b.t < a.t ? b : a)); // 묶음 id는 가장 먼저 나온 기사 기준 (대표 기사가 바뀌어도 스크랩·읽음 유지)
+    return { id: earliest.id, title: head.title, sum: head.desc, link: head.link, src: head.src, tier: tier(head.src), t: Math.max(...all.map((m) => m.t)),
+      media: srcs.size > 1 ? srcs.size : 0, rel: more.slice(0, 5).map((m) => [m.src, m.title, m.link]), _links: all.map((m) => m.raw) };
   });
 }
 
@@ -87,10 +90,27 @@ export default async function handler(req, res) {
   if (!q.length) return res.status(400).json({ error: "검색어(q)가 필요해요" });
   try {
     const opt = { id, secret, legacy: process.env.NAVER_API_MODE === "legacy" };
-    const all = (await Promise.all(q.map((w) => search(w, opt).catch(() => [])))).flat();
-    const items = group(all, ex).slice(0, 30);
-    res.setHeader("Cache-Control", "s-maxage=600, stale-while-revalidate=1800");
-    res.status(200).json({ items, at: Date.now() });
+    const res1 = await Promise.allSettled(q.map((w) => search(w, opt)));
+    const ok = res1.filter((r) => r.status === "fulfilled");
+    if (!ok.length) { res.setHeader("Cache-Control", "no-store"); return res.status(502).json({ error: "naver: " + String(res1[0].reason && res1[0].reason.message || "fail").slice(0, 200) }); }
+    // 검색어마다 번갈아 골라서 한 검색어(예: 인공지능)가 30개를 다 차지하지 않게
+    const per = res1.map((r) => (r.status === "fulfilled" ? r.value : []));
+    const kwLinks = per.map((items) => new Set(items.map((it) => it.originallink || it.link)));
+    const pick = (dayMs) => {
+      const G = group(per.flat(), ex, dayMs); // 검색어가 달라도 같은 소식이면 하나로 묶임
+      const buckets = per.map(() => []);
+      G.forEach((g) => { const i = kwLinks.findIndex((set) => g._links.some((l) => set.has(l))); buckets[Math.max(0, i)].push(g); });
+      const out = [];
+      for (let i = 0; out.length < 30 && buckets.some((bk) => i < bk.length); i++) for (const bk of buckets) if (bk[i] && out.length < 30) out.push(bk[i]);
+      return out.sort((x, y) => y.t - x.t).map(({ _links, ...g }) => g);
+    };
+    // 보통은 최근 36시간 기사. 기사가 드문 분야(예: 가축분뇨)라서 5건이 안 되면 최근 7일까지 넓혀서 보여 줌
+    let items = pick(undefined);
+    const wide = items.length < 5;
+    if (wide) items = pick(7 * 24 * 3600 * 1000);
+    // 일부 검색어만 실패했으면 짧게만 캐시
+    res.setHeader("Cache-Control", ok.length === q.length ? "s-maxage=600, stale-while-revalidate=1800" : "s-maxage=60");
+    res.status(200).json({ items, wide, at: Date.now() });
   } catch (e) {
     res.status(502).json({ error: String(e.message || e) });
   }

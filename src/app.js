@@ -457,7 +457,7 @@ const DEX = {
     { id: "s-15", no: 15, kind: "sprout", name: "새싹이" },
     { id: "s-16", no: 16, kind: "sprout", name: "새싹이" },
     { id: "s-17", no: 17, kind: "sprout", name: "새싹이" },
-    { id: "l-cheer", no: 1, kind: "legend", img: "cheer", name: "응원단장", cond: "연속 출석 30일", now: 0, goal: 30 },
+    { id: "l-cheer", no: 1, kind: "legend", img: "", name: "응원단장", /* 그림 다시 만들 예정 (공란) */ cond: "연속 출석 30일", now: 0, goal: 30 },
     { id: "l-king", no: 2, kind: "legend", img: "king", name: "전하", cond: "출석 365일", now: 0, goal: 365 },
     { id: "l-kya", no: 3, kind: "legend", img: "kya", name: "캬~", cond: "금요일 저녁 출석 10번", now: 0, goal: 10 },
     { id: "l-newyear", no: 4, kind: "legend", img: "newyear", name: "새해 복", cond: "설 연휴에 가끔 나타나요 · 랜덤" },
@@ -525,7 +525,7 @@ function dexGridHTML() {
   const list = DEX.items.filter((x) => dexTab === "all" || x.kind === dexTab);
   return `<div class="dx-grid">${list.map((x) => {
     const lg = x.kind === "legend", o = owned(x);
-    const sub = o ? (x.kind === "sprout" && !x.img ? "그림 준비 중" : dexNo(x)) : lg ? (x.goal ? `${x.cond} · ${x.now}/${x.goal}` : x.hidden ? "조건 비공개" : x.cond) : dexNo(x);
+    const sub = o ? (!x.img ? "그림 준비 중" : dexNo(x)) : lg ? (x.goal ? `${x.cond} · ${x.now}/${x.goal}` : x.hidden ? "조건 비공개" : x.cond) : dexNo(x);
     return `<button type="button" class="dx-t${o ? " own" : ""}${lg ? " lg" : ""}${x.kind === "sprout" ? " spr" : ""}" data-dex="${x.id}">
       <span class="dx-a">${dexArt(x)}</span><span class="dx-n">${o ? esc(x.name) : "???"}</span><span class="dx-s">${esc(sub)}</span>
       ${lg && x.goal ? `<span class="dx-p"><i style="width:${Math.round(x.now / x.goal * 100)}%"></i></span>` : ""}</button>`;

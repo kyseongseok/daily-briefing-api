@@ -570,3 +570,4 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .sd-t { font-size: calc(14.5px * var(--s)); font-weight: 650; line-height: 1.45; }
 .sd-m { font-size: calc(12px * var(--s)); color: var(--faint); }
 .sd-m b { color: #1F7F66; font-weight: 700; }
+.sheet, .tour .tr-card { overscroll-behavior: contain; }

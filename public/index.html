@@ -19,12 +19,14 @@ if (!/[?&]m=1/.test(location.search)) { const wide = matchMedia("(min-width: 900
 <link rel="stylesheet" href="assets/app.css">
 <style>
 /* 모바일 시안: 왼쪽 시안 도구, 오른쪽 휴대폰 화면. 좁은 화면에서는 휴대폰 화면만 꽉 차게. */
-html, body { height: 100%; }
-body { margin: 0; background: #E9EDF3; }
-.stage { height: 100%; height: 100dvh; display: flex; justify-content: center; }
+/* 앱 틀을 화면에 못 박아 둠: 휴대폰 주소창이 숨거나 나타나도 아래 메뉴가 항상 같은 자리에 있게.
+   페이지 전체는 스크롤하지 않고, 안쪽 목록(.scroll)만 스크롤 */
+html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; }
+body { background: #E9EDF3; }
+.stage { position: fixed; inset: 0; display: flex; justify-content: center; }
 .phone { width: 100%; max-width: 900px; height: 100%; display: flex; flex-direction: column; position: relative; overflow: hidden; padding-top: env(safe-area-inset-top, 0px); }
 .nav { padding-bottom: max(14px, env(safe-area-inset-bottom, 0px)); }
-.app .scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 16px 20px; display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin; }
+.app .scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; padding: 16px 16px 20px; display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin; }
 .app .scroll > * { flex: none; }
 .screen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 

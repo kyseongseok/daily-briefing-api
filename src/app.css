@@ -223,6 +223,10 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .dx-bar i.on { background: #F3D98B; }
 .dx-next.gold { background: linear-gradient(135deg, #5A4410, #8A6A1C); }
 .dx-next.gold .dx-bar i.on { background: #FFE38A; }
+.dx-q { margin-top: 4px; align-self: flex-start; font-size: calc(11px * var(--s)); font-weight: 700; color: #FFE9A8; background: rgba(0, 0, 0, .2); border-radius: 999px; padding: 3px 9px; }
+.app[data-mode="digest"] .dx-q { color: #6B5310; background: rgba(154, 123, 30, .15); }
+.dx-gb { position: absolute; top: 6px; right: 6px; width: 20px; height: 26px; }
+.dx-gb img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0,0,0,.2)); }
 .app[data-mode="digest"] .dx-next.gold { background: #F6E7B8; }
 .app[data-mode="digest"] .dx-next.gold .dx-bar i.on { background: #9A7B1E; }
 .app[data-mode="jogan"] .dx-next { border-radius: 0; }
@@ -239,7 +243,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .app[data-mode="jogan"] .dx-tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); box-shadow: none; }
 .app[data-mode="jogan"] .dx-tabs button[aria-selected="true"] span { color: var(--bg); }
 .dx-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.dx-t { border: 1px dashed var(--line); background: var(--line2); border-radius: var(--r-s); padding: 10px 6px 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; text-align: center; color: var(--ink); }
+.dx-t { position: relative; border: 1px dashed var(--line); background: var(--line2); border-radius: var(--r-s); padding: 10px 6px 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; text-align: center; color: var(--ink); }
 .dx-t.own { background: var(--surface); border: 1px solid var(--line); }
 .dx-t.lg { background: linear-gradient(180deg, #FFF8E2, #FFFFFF 60%); border: 1px solid #F0DDA0; }
 .dx-a { height: 84px; display: flex; align-items: flex-end; justify-content: center; }

@@ -330,11 +330,21 @@ function bindCommon(app, rerender) {
       if (!was && before < 3 && S.read.size >= 3) {
         FX.attDone = true;
         const y = new Date(); y.setDate(y.getDate() - 1); const yk = `${y.getFullYear()}-${y.getMonth() + 1}-${y.getDate()}`;
+        const now = new Date(), hatches = [];
         DEX.streak = DEX.last === yk ? DEX.streak + 1 : 1; DEX.days += 1; DEX.last = todayKey();
+        if (now.getDay() === 5 && now.getHours() >= 17) DEX.fri += 1; // 금요일 저녁 출석
+        if (now.getHours() < 8) { DEX.early = DEX.earlyLast === yk ? DEX.early + 1 : 1; DEX.earlyLast = todayKey(); } else DEX.early = 0; // 아침 8시 전 연속 출석
+        goldTick(hatches);
         const pool = DEX.items.filter((x) => !owned(x) && x.kind !== "legend" && x.img);
-        if (DEX.days === 1) { const w = DEX.items.find((x) => x.id === "i-wave"); if (w && !owned(w)) { w.got = md(new Date()); FX.hatch = w.id; } saveDex(); }
-        else if (DEX.days % 5 === 0) { const nx = pool[Math.floor(Math.random() * pool.length)]; if (nx) { nx.got = md(new Date()); nx.line = nx.line || "오늘 출석으로 만난 새 친구예요."; FX.hatch = nx.id; } saveDex(); }
-        else { saveDex(); toast(app, `오늘 출석 완료! 다음 친구까지 출석 ${5 - (DEX.days % 5)}일`); }
+        let msg = "";
+        if (DEX.days === 1) { const w = DEX.items.find((x) => x.id === "i-wave"); if (w && !owned(w)) { w.got = md(new Date()); hatches.unshift(w.id); } }
+        else if (DEX.days % 5 === 0) {
+          const rl = Math.random() < GOLD_RAND ? randLegend(now) : null;
+          if (rl && giveGold(rl.id, true)) msg = "알이 반짝이더니… 황금알로 변했어요! 출석 3일이면 깨어나요";
+          else { const nx = pool[Math.floor(Math.random() * pool.length)]; if (nx) { nx.got = md(new Date()); nx.line = nx.line || "오늘 출석으로 만난 새 친구예요."; hatches.unshift(nx.id); } }
+        } else msg = `오늘 출석 완료! 다음 친구까지 출석 ${5 - (DEX.days % 5)}일`;
+        saveDex();
+        if (hatches.length) FX.hatch = hatches; else if (msg) toast(app, msg);
       } else if (!(art && safeUrl(art.link))) toast(app, "예시 기사예요 · 기사 연결 후 원문이 열려요");
       rerender(); return;
     }
@@ -399,7 +409,7 @@ function bindCommon(app, rerender) {
 /* ── 도감: 이삭이 · 새싹이 ── 출석 5일마다 1마리(이삭이/새싹이 중 랜덤), 전설은 업적으로 */
 const IMG = __IMGS__;
 const DEX = {
-  days: 0, streak: 0, last: "", reads: 0, shares: 0, goldEgg: null,
+  days: 0, streak: 0, last: "", reads: 0, shares: 0, goldEgg: null, goldQ: [], earned: [], fri: 0, early: 0, earlyLast: "",
   totals: { isak: 40, sprout: 40, legend: 20 },
   items: [
     { id: "i-wave", no: 1, kind: "isak", img: "wave", name: "굿모닝", line: "아침마다 먼저 인사하는 출근 요정." },
@@ -457,7 +467,7 @@ const DEX = {
     { id: "s-15", no: 15, kind: "sprout", name: "새싹이" },
     { id: "s-16", no: 16, kind: "sprout", name: "새싹이" },
     { id: "s-17", no: 17, kind: "sprout", name: "새싹이" },
-    { id: "l-cheer", no: 1, kind: "legend", img: "", name: "응원단장", /* 그림 다시 만들 예정 (공란) */ cond: "연속 출석 30일", now: 0, goal: 30 },
+    { id: "l-cheer", no: 1, kind: "legend", img: "cheer", name: "응원단장", cond: "연속 출석 30일", now: 0, goal: 30 },
     { id: "l-king", no: 2, kind: "legend", img: "king", name: "전하", cond: "출석 365일", now: 0, goal: 365 },
     { id: "l-kya", no: 3, kind: "legend", img: "kya", name: "캬~", cond: "금요일 저녁 출석 10번", now: 0, goal: 10 },
     { id: "l-newyear", no: 4, kind: "legend", img: "newyear", name: "새해 복", cond: "설 연휴에 가끔 나타나요 · 랜덤" },
@@ -466,7 +476,7 @@ const DEX = {
     { id: "l-seonbi", no: 8, kind: "legend", img: "seonbi", name: "선비 이삭", cond: "스크랩 100개 모으기", now: 0, goal: 100 },
     { id: "l-doryeong", no: 9, kind: "legend", img: "doryeong", name: "도령", cond: "7일 연속 아침 8시 전에 출석", now: 0, goal: 7 },
     { id: "l-assi", no: 10, kind: "legend", img: "assi", name: "아씨", cond: "팀원과 기사 50번 공유하기", now: 0, goal: 50 },
-    { id: "l-liberty", no: 11, kind: "legend", img: "liberty", name: "자유의 이삭", cond: "하루에 모든 분야 기사 읽기", now: 0, goal: 8 },
+    { id: "l-liberty", no: 11, kind: "legend", img: "liberty", name: "자유의 이삭", cond: "하루에 내 모든 분야에서 기사 2개씩 읽기", now: 0, goal: 3 },
     { id: "l-army", no: 12, kind: "legend", img: "army", name: "충성!", cond: "출석 100일 (100일 휴가)", now: 0, goal: 100 },
     { id: "l-watermelon", no: 13, kind: "legend", img: "watermelon", name: "수박 한 통", cond: "여름(7~8월)에 가끔 나타나요 · 랜덤" },
     { id: "l-halloween", no: 14, kind: "legend", img: "halloween", name: "잭오랜턴", cond: "할로윈 주간에 가끔 나타나요 · 랜덤" },
@@ -481,21 +491,73 @@ let dexTab = "all";
 const DEX_KEY = "daily-briefing-dex";
 const LEGEND_NOW = {
   "l-cheer": () => DEX.streak, "l-king": () => DEX.days, "l-army": () => DEX.days, "l-dolsoe": () => DEX.reads,
-  "l-seonbi": () => S.scrap.size, "l-assi": () => DEX.shares,
+  "l-seonbi": () => S.scrap.size, "l-assi": () => DEX.shares, "l-kya": () => DEX.fri, "l-doryeong": () => DEX.early, "l-liberty": () => libertyNow(),
   "l-sprout": () => DEX.items.filter((x) => x.kind === "sprout" && x.got).length, "l-golden": () => DEX.items.filter((x) => x.kind === "isak" && x.got).length,
 };
-function dexProgress() { DEX.items.forEach((x) => { if (x.goal && LEGEND_NOW[x.id]) x.now = Math.min(x.goal, LEGEND_NOW[x.id]()); }); }
+function dexProgress() {
+  const lib = DEX.items.find((x) => x.id === "l-liberty"); if (lib) lib.goal = Math.max(2, (S.cats || []).length);
+  DEX.items.forEach((x) => { if (x.goal && LEGEND_NOW[x.id]) x.now = Math.min(x.goal, LEGEND_NOW[x.id]()); });
+}
+const DEX_FIELDS = ["days", "streak", "last", "reads", "shares", "goldEgg", "goldQ", "earned", "fri", "early", "earlyLast"];
+/* 자유의 이삭: 오늘 기사를 2개 이상 읽은 내 분야 수 (목표 = 내 분야 전부) */
+function libertyNow() {
+  if (S.readDay !== todayKey()) return 0;
+  const mine = new Set((S.cats || []).map((c) => c.id)), n = {};
+  (S.arts || []).forEach((a) => { if (S.read.has(a.id)) (a.cats || [a.cat]).forEach((c) => { if (mine.has(c)) n[c] = (n[c] || 0) + 1; }); });
+  return Object.values(n).filter((v) => v >= 2).length;
+}
+/* ── 황금알 ──
+   - 조건 전설: 조건을 채우는 순간 황금알을 받음 → 그 뒤 출석 3일이면 부화
+   - 한 번에 하나만 품고, 그동안 받은 알은 차례로 대기 (goldQ)
+   - 일반 알(출석 5일)은 따로 계속 참. 일반 알이 다 찼을 때 5% 확률로 랜덤 전설 황금알로 바뀜 */
+const GOLD_NEED = 3, GOLD_RAND = 0.05;
+function giveGold(id, rand) {
+  if (DEX.earned.includes(id)) return false;
+  DEX.earned.push(id);
+  if (!DEX.goldEgg) DEX.goldEgg = { id, need: GOLD_NEED, done: 0, from: todayKey(), rand: !!rand };
+  else DEX.goldQ.push({ id, rand: !!rand });
+  return true;
+}
+function checkLegends() {
+  DEX.items.forEach((x) => {
+    if (x.kind !== "legend" || !x.goal || owned(x) || DEX.earned.includes(x.id)) return;
+    if (LEGEND_NOW[x.id] && LEGEND_NOW[x.id]() >= x.goal && giveGold(x.id)) FX.goldNew = (FX.goldNew || 0) + 1;
+  });
+}
+/* 랜덤 전설 후보: 지금 계절에 나오는 전설, 가끔 비눗방울(가장 희귀) */
+const SEOLLAL = { 2027: [2, 7], 2028: [1, 27], 2029: [2, 13], 2030: [2, 3], 2031: [1, 23] }; // 설날(양력)
+function randLegend(d = new Date()) {
+  const m = d.getMonth() + 1, day = d.getDate(), sl = SEOLLAL[d.getFullYear()];
+  const near = sl && Math.abs((new Date(d.getFullYear(), sl[0] - 1, sl[1]) - new Date(d.getFullYear(), m - 1, day)) / 864e5) <= 2;
+  const on = { "l-newyear": near, "l-watermelon": m === 7 || m === 8, "l-halloween": m === 10 && day >= 25, "l-dracula": m === 10 && day >= 25, "l-xmas": m === 12 };
+  const ok = (x) => x && !owned(x) && !DEX.earned.includes(x.id);
+  const season = DEX.items.filter((x) => on[x.id] && ok(x));
+  const bubble = DEX.items.find((x) => x.id === "l-hidden");
+  if (ok(bubble) && (!season.length || Math.random() < 0.2)) return bubble;
+  return season[Math.floor(Math.random() * season.length)] || null;
+}
+/* 출석한 날 한 번: 황금알 한 칸, 다 차면 부화하고 대기 중인 다음 알을 품음 */
+function goldTick(hatches) {
+  const g = DEX.goldEgg; if (!g || g.from === todayKey()) return;
+  g.done += 1;
+  if (g.done >= g.need) {
+    const x = DEX.items.find((y) => y.id === g.id);
+    if (x && !owned(x)) { x.got = md(new Date()); hatches.push(x.id); }
+    const nx = DEX.goldQ.shift();
+    DEX.goldEgg = nx ? { id: nx.id, need: GOLD_NEED, done: 0, from: todayKey(), rand: nx.rand } : null;
+  }
+}
 function loadDex() {
   try {
     const d = JSON.parse(localStorage.getItem(DEX_KEY) || "{}");
-    ["days", "streak", "last", "reads", "shares", "goldEgg"].forEach((k) => { if (d[k] != null) DEX[k] = d[k]; });
+    DEX_FIELDS.forEach((k) => { if (d[k] != null) DEX[k] = d[k]; });
     Object.entries(d.got || {}).forEach(([id, when]) => { const x = DEX.items.find((i) => i.id === id); if (x) x.got = when; });
   } catch (e) {}
-  dexProgress();
+  dexProgress(); checkLegends();
 }
 function saveDex() {
-  dexProgress();
-  try { localStorage.setItem(DEX_KEY, JSON.stringify({ days: DEX.days, streak: DEX.streak, last: DEX.last, reads: DEX.reads, shares: DEX.shares, goldEgg: DEX.goldEgg,
+  dexProgress(); checkLegends();
+  try { localStorage.setItem(DEX_KEY, JSON.stringify({ ...Object.fromEntries(DEX_FIELDS.map((k) => [k, DEX[k]])),
     got: Object.fromEntries(DEX.items.filter((x) => x.got).map((x) => [x.id, x.got])) })); } catch (e) {}
   syncSoon();
 }
@@ -517,18 +579,23 @@ function dexNextHTML() {
 }
 function dexGoldHTML() {
   const g = DEX.goldEgg; if (!g) return "";
+  const x = DEX.items.find((y) => y.id === g.id) || {}, left = g.need - g.done, q = DEX.goldQ.length;
+  const who = g.rand ? "어떤 전설일지는 깨어나 봐야 알아요" : `‘${esc(x.cond || "")}’ 달성으로 받은 알이에요`;
   return `<section class="dx-next gold"><div class="dx-egg" aria-hidden="true"><img src="${IMG.gEgg}" alt=""></div>
-    <div class="dx-nt"><b>황금알 부화까지 출석 ${g.need - g.done}일</b><small>전설 조건을 채워 받은 알이에요. 출석 ${g.need}일을 채우면 깨어나요</small>
-    <div class="dx-bar">${Array.from({ length: g.need }, (_, i) => `<i class="${i < g.done ? "on" : ""}"></i>`).join("")}</div></div></section>`;
+    <div class="dx-nt"><b>황금알 부화까지 출석 ${left}일</b><small>${who}</small>
+    <div class="dx-bar">${Array.from({ length: g.need }, (_, i) => `<i class="${i < g.done ? "on" : ""}"></i>`).join("")}</div>
+    ${q ? `<span class="dx-q">다음 황금알 ${q}개 기다리는 중</span>` : ""}</div></section>`;
 }
+const goldState = (x) => (DEX.goldEgg && DEX.goldEgg.id === x.id ? "hatching" : DEX.earned.includes(x.id) && !owned(x) ? "waiting" : "");
 function dexGridHTML() {
   const list = DEX.items.filter((x) => dexTab === "all" || x.kind === dexTab);
   return `<div class="dx-grid">${list.map((x) => {
     const lg = x.kind === "legend", o = owned(x);
-    const sub = o ? (!x.img ? "그림 준비 중" : dexNo(x)) : lg ? (x.goal ? `${x.cond} · ${x.now}/${x.goal}` : x.hidden ? "조건 비공개" : x.cond) : dexNo(x);
+    const gs = lg && goldState(x);
+    const sub = o ? (!x.img ? "그림 준비 중" : dexNo(x)) : gs === "hatching" ? "황금알 품는 중" : gs === "waiting" ? "황금알 대기 중" : lg ? (x.goal ? `${x.cond} · ${x.now}/${x.goal}` : x.hidden ? "조건 비공개" : x.cond) : dexNo(x);
     return `<button type="button" class="dx-t${o ? " own" : ""}${lg ? " lg" : ""}${x.kind === "sprout" ? " spr" : ""}" data-dex="${x.id}">
       <span class="dx-a">${dexArt(x)}</span><span class="dx-n">${o ? esc(x.name) : "???"}</span><span class="dx-s">${esc(sub)}</span>
-      ${lg && x.goal ? `<span class="dx-p"><i style="width:${Math.round(x.now / x.goal * 100)}%"></i></span>` : ""}</button>`;
+      ${gs ? `<span class="dx-gb" aria-hidden="true"><img src="${IMG.gEgg}" alt=""></span>` : ""}${lg && x.goal && !gs ? `<span class="dx-p"><i style="width:${Math.round(x.now / x.goal * 100)}%"></i></span>` : ""}</button>`;
   }).join("")}</div>`;
 }
 function dexTabsHTML() {
@@ -540,6 +607,7 @@ function dexSheet(id) {
   return `<div class="grab"></div><div class="sh-head"><h2>${o ? esc(x.name) : lg ? "아직 못 만난 전설" : "아직 못 만난 친구"}</h2><button type="button" class="x" data-close>닫기</button></div>
     <div class="dx-big${x.kind === "sprout" ? " spr" : ""}${lg ? " lg" : ""}">${dexArt(x, true)}</div>
     ${o ? `<p class="dx-line">${esc(x.line)}</p><div class="dx-meta">${dexNo(x)} · ${x.got}에 만났어요</div>`
+      : lg && goldState(x) ? `<p class="dx-line">${goldState(x) === "hatching" ? `황금알을 품고 있어요. 출석 ${DEX.goldEgg.need - DEX.goldEgg.done}일 뒤 깨어나요.` : "황금알을 받았어요. 지금 품는 알이 깨어나면 이어서 품어요."}</p>`
       : lg ? `<p class="dx-line">${x.hidden ? "어떻게 얻는지는 비밀이에요. 꾸준히 읽다 보면 만날 수 있어요." : `조건: ${esc(x.cond)}. 채우면 누구인지 공개돼요.`}</p>${x.goal ? `<div class="dx-p big"><i style="width:${Math.round(x.now / x.goal * 100)}%"></i></div><div class="dx-meta">지금 ${x.now} / ${x.goal}</div>` : ""}`
       : `<p class="dx-line">출석 5일마다 랜덤으로 와요. 다음 친구까지 출석 ${5 - (DEX.days % 5)}일 남았어요.</p>`}`;
 }
@@ -782,7 +850,8 @@ function mergeDex(ld, sd) {
   const sFirst = (sd.days || 0) > (ld.days || 0) || ((sd.days || 0) === (ld.days || 0) && dayNum(sd.last) >= dayNum(ld.last));
   const hi = sFirst ? sd : ld, lo = sFirst ? ld : sd;
   return { ...lo, ...hi, reads: Math.max(sd.reads || 0, ld.reads || 0), shares: Math.max(sd.shares || 0, ld.shares || 0),
-    got: { ...(lo.got || {}), ...(hi.got || {}) }, goldEgg: hi.goldEgg != null ? hi.goldEgg : lo.goldEgg ?? null };
+    got: { ...(lo.got || {}), ...(hi.got || {}) }, earned: uniq(lo.earned || [], hi.earned || []),
+    goldEgg: hi.goldEgg != null ? hi.goldEgg : lo.goldEgg ?? null, goldQ: hi.goldEgg != null ? hi.goldQ || [] : lo.goldQ || [] };
 }
 /* 합치기: base = 마지막으로 맞춘 기록, l = 이 기기, s = 서버
    - base가 없으면(처음 연결) 설정·분야는 서버 것, 스크랩·팀·출석은 합침
@@ -1091,16 +1160,19 @@ function applyFX(app) {
   }
   if (FX.relAnim) { const rb = app.querySelector(".relbox"); if (rb) requestAnimationFrame(() => requestAnimationFrame(() => rb.classList.add("open"))); }
   if (FX.enter) { const sc = app.querySelector(FX.enter); if (sc) sc.classList.add("enter"); }
-  const hatch = FX.hatch;
+  const hatch = FX.hatch, goldNew = FX.goldNew;
   ["read", "att", "attDone", "star", "relAnim", "enter", "hatch"].forEach((k) => delete FX[k]);
-  if (hatch) setTimeout(() => showHatch(app, hatch), 900);
+  if (hatch) { HXQ = [...hatch]; setTimeout(() => hatchNext(app), 900); }
+  if (goldNew && !hatch) { delete FX.goldNew; } if (goldNew && !hatch) toast(app, "전설 조건 달성! 황금알을 받았어요 · 출석 3일이면 깨어나요");
 }
+let HXQ = [];
+function hatchNext(app) { const id = HXQ.shift(); if (id) showHatch(app, id); else if (FX.goldNew) { delete FX.goldNew; toast(app, "전설 조건 달성! 황금알을 받았어요 · 출석 3일이면 깨어나요"); } }
 function showHatch(app, id) {
   const x = DEX.items.find((y) => y.id === id);
   $$(".hx", app).forEach((n) => n.remove());
   const gold = x.kind === "legend";
   const el = document.createElement("div"); el.className = "hx" + (gold ? " gold" : ""); el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "새 친구를 만났어요");
-  el.innerHTML = `<div class="hx-card"><div class="hx-top">${gold ? `전설 · ${esc(x.cond)} 달성!` : `출석 ${DEX.days}일 달성!`}</div>
+  el.innerHTML = `<div class="hx-card"><div class="hx-top">${gold ? "황금알이 깨어났어요!" : `출석 ${DEX.days}일 달성!`}</div>
     <div class="hx-stage"><div class="hx-egg"><img class="w" src="${gold ? IMG.gEgg : IMG.egg}" alt=""><img class="b" src="${gold ? IMG.gEggBot : IMG.eggBot}" alt=""><img class="a" src="${gold ? IMG.gEggTop : IMG.eggTop}" alt=""></div>${x.img ? `<img src="${IMG[x.img]}" alt="${esc(x.name)}">` : `<span class="hx-sp">${dexArt(x, true)}</span>`}</div>
     <div class="hx-txt"><small>${dexNo(x)}</small><b>${esc(x.kind === "sprout" ? "새싹이" : x.name)}</b><span>${gold ? "전설 친구를 만났어요" : "새 친구를 만났어요"}</span></div>
     <div class="hx-btns"><button type="button" class="cta" data-hxgo>도감에서 보기</button><button type="button" class="hx-x" data-hxclose>닫기</button></div></div>`;

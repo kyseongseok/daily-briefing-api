@@ -222,8 +222,8 @@ app.addEventListener("click", (e) => {
   if (b.dataset.tab) { quick = false; go(b.dataset.tab); return; }
   if (b.dataset.quick !== undefined) { quick = !quick; render(); return; }
   if (b.dataset.refresh !== undefined) { refreshNews(app, b, render); return; }
-  if (b.dataset.hxgo !== undefined) { $$(".hx", app).forEach((n) => n.remove()); go("dex"); return; }
-  if (b.dataset.hxclose !== undefined) { $$(".hx", app).forEach((n) => n.remove()); return; }
+  if (b.dataset.hxgo !== undefined) { $$(".hx", app).forEach((n) => n.remove()); setTimeout(() => hatchNext(app), 400); go("dex"); return; }
+  if (b.dataset.hxclose !== undefined) { $$(".hx", app).forEach((n) => n.remove()); hatchNext(app); return; }
   if (b.dataset.gonew !== undefined) { $$(".newpill", app).forEach((n) => n.remove()); go("topics"); return; }
   if (b.dataset.more) { S.catView = { id: b.dataset.more, sort: "new", unread: false }; go("cat"); return; }
   if (b.dataset.back !== undefined) { go("topics"); const el = $("#sec-" + S.catView.id); if (el) el.scrollIntoView({ block: "start" }); return; }

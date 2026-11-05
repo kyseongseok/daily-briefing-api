@@ -172,6 +172,7 @@ function scrapList() { return [...S.scrap].reverse().map((id) => S.arts.find((a)
 async function refreshNews(app, btn, rerender, onNew) {
   btn.classList.remove("spin"); void btn.offsetWidth; btn.classList.add("spin");
   const before = new Set(S.arts.map((a) => a.id));
+  fetchStats(true).then(rerender);
   try {
     applyNews(await fetchNews());
     const fresh = S.arts.filter((a) => !before.has(a.id));
@@ -319,33 +320,44 @@ function playIntro(app, onDone) {
 }
 
 /* 공통 클릭 처리 */
+/* 기사 하나 읽음 → 하루 3개면 출석. 오늘·분야별·스크랩·팀 스크랩함·통계 어디서 열어도 똑같이 셈 */
+function markRead(app, id) {
+  if (S.readDay !== todayKey()) { S.read = new Set(); S.readDay = todayKey(); } // 밤새 켜 둔 화면: 날이 바뀌면 오늘 읽음을 새로 셈
+  const was = S.read.has(id), before = S.read.size; S.read.add(id); savePrefs(); if (!was) { DEX.reads += 1; saveDex(); }
+  if (!was) { FX.read = id; if (before < 3) FX.att = S.read.size; }
+  if (!was && before < 3 && S.read.size >= 3) {
+    FX.attDone = true;
+    const y = new Date(); y.setDate(y.getDate() - 1); const yk = `${y.getFullYear()}-${y.getMonth() + 1}-${y.getDate()}`;
+    const now = new Date(), hatches = [];
+    DEX.streak = DEX.last === yk ? DEX.streak + 1 : 1; DEX.days += 1; DEX.last = todayKey();
+    if (now.getDay() === 5 && now.getHours() >= 17) DEX.fri += 1; // 금요일 저녁 출석
+    if (now.getHours() < 8) { DEX.early = DEX.earlyLast === yk ? DEX.early + 1 : 1; DEX.earlyLast = todayKey(); } else DEX.early = 0; // 아침 8시 전 연속 출석
+    goldTick(hatches);
+    const pool = DEX.items.filter((x) => !owned(x) && x.kind !== "legend" && x.img);
+    let msg = "";
+    if (DEX.days === 1) { const w = DEX.items.find((x) => x.id === "i-wave"); if (w && !owned(w)) { w.got = md(new Date()); hatches.unshift(w.id); } }
+    else if (DEX.days % 5 === 0) {
+      const rl = Math.random() < GOLD_RAND ? randLegend(now) : null;
+      if (rl && giveGold(rl.id, true)) msg = "알이 반짝이더니… 황금알로 변했어요! 출석 3일이면 깨어나요";
+      else { const nx = pool[Math.floor(Math.random() * pool.length)]; if (nx) { nx.got = md(new Date()); nx.line = nx.line || "오늘 출석으로 만난 새 친구예요."; hatches.unshift(nx.id); } }
+    } else msg = `오늘 출석 완료! 다음 친구까지 출석 ${5 - (DEX.days % 5)}일`;
+    saveDex();
+    if (hatches.length) FX.hatch = hatches; else if (msg) toast(app, msg);
+  }
+  return was;
+}
 function bindCommon(app, rerender) {
+  /* 링크로 바로 여는 기사(통계·팀 스크랩함): 링크는 그대로 열고 읽음만 셈 */
+  app.addEventListener("click", (e) => {
+    const a = e.target.closest("a[data-rd]"); if (!a || !app.contains(a)) return;
+    markRead(app, a.dataset.rd); setTimeout(rerender, 0);
+  });
   app.addEventListener("click", (e) => {
     const t = e.target.closest("button, [data-close]"); if (!t || !app.contains(t)) return;
     if (t.dataset.open) {
-      if (S.readDay !== todayKey()) { S.read = new Set(); S.readDay = todayKey(); } // 밤새 켜 둔 화면: 날이 바뀌면 오늘 읽음을 새로 셈
-      const id = t.dataset.open, was = S.read.has(id), before = S.read.size; S.read.add(id); savePrefs(); if (!was) { DEX.reads += 1; saveDex(); }
+      const id = t.dataset.open; markRead(app, id);
       const art = S.arts.find((a) => a.id === id); if (art && safeUrl(art.link)) window.open(safeUrl(art.link), "_blank", "noopener");
-      if (!was) { FX.read = id; if (before < 3) FX.att = S.read.size; }
-      if (!was && before < 3 && S.read.size >= 3) {
-        FX.attDone = true;
-        const y = new Date(); y.setDate(y.getDate() - 1); const yk = `${y.getFullYear()}-${y.getMonth() + 1}-${y.getDate()}`;
-        const now = new Date(), hatches = [];
-        DEX.streak = DEX.last === yk ? DEX.streak + 1 : 1; DEX.days += 1; DEX.last = todayKey();
-        if (now.getDay() === 5 && now.getHours() >= 17) DEX.fri += 1; // 금요일 저녁 출석
-        if (now.getHours() < 8) { DEX.early = DEX.earlyLast === yk ? DEX.early + 1 : 1; DEX.earlyLast = todayKey(); } else DEX.early = 0; // 아침 8시 전 연속 출석
-        goldTick(hatches);
-        const pool = DEX.items.filter((x) => !owned(x) && x.kind !== "legend" && x.img);
-        let msg = "";
-        if (DEX.days === 1) { const w = DEX.items.find((x) => x.id === "i-wave"); if (w && !owned(w)) { w.got = md(new Date()); hatches.unshift(w.id); } }
-        else if (DEX.days % 5 === 0) {
-          const rl = Math.random() < GOLD_RAND ? randLegend(now) : null;
-          if (rl && giveGold(rl.id, true)) msg = "알이 반짝이더니… 황금알로 변했어요! 출석 3일이면 깨어나요";
-          else { const nx = pool[Math.floor(Math.random() * pool.length)]; if (nx) { nx.got = md(new Date()); nx.line = nx.line || "오늘 출석으로 만난 새 친구예요."; hatches.unshift(nx.id); } }
-        } else msg = `오늘 출석 완료! 다음 친구까지 출석 ${5 - (DEX.days % 5)}일`;
-        saveDex();
-        if (hatches.length) FX.hatch = hatches; else if (msg) toast(app, msg);
-      } else if (!(art && safeUrl(art.link))) toast(app, "예시 기사예요 · 기사 연결 후 원문이 열려요");
+      else toast(app, "예시 기사예요 · 기사 연결 후 원문이 열려요");
       rerender(); return;
     }
     if (t.dataset.rel !== undefined) { S.relOpen = !S.relOpen; FX.relAnim = S.relOpen; rerender(); return; }
@@ -707,7 +719,7 @@ function teamBodyHTML(t) {
     <div class="tm-acts"><button type="button" data-invite="${t.id}">${ICON.team}팀원 초대</button>${n7 ? `<button type="button" data-weekly="${t.id}">${ICON.copy}이번 주 모음 복사</button>` : ""}<button type="button" data-tset="${t.id}">${ICON.gear}팀 관리</button></div></div>
     ${t.items.map((x) => { const c = S.cats.find((k) => k.name === x.cat); const can = x.member === t.me || t.isOwner;
       return `<article class="tcard"><div class="who"><span class="chip" style="background:#FFF4D6;color:#7A5A06">${esc(x.who)} 님이 담음</span>${x.cat ? (c ? chipCat(c) : `<span class="chip">${esc(x.cat)}</span>`) : ""}<span class="tdate">${shortDate(x.created_at)}</span>${can ? `<button type="button" class="tdel" data-tremove="${t.id}:${x.id}" aria-label="빼기">빼기</button>` : ""}</div>
-        ${safeUrl(x.link) ? `<a class="tt" href="${esc(safeUrl(x.link))}" target="_blank" rel="noopener">${esc(x.title)}</a>` : `<div class="tt">${esc(x.title)}</div>`}${x.src ? `<small class="tsrc">${esc(x.src)}</small>` : ""}${x.note ? `<div class="note">${esc(x.note)}</div>` : ""}</article>`; }).join("")}`;
+        ${safeUrl(x.link) ? `<a class="tt" data-rd="${esc(rdId(x.link))}" href="${esc(safeUrl(x.link))}" target="_blank" rel="noopener">${esc(x.title)}</a>` : `<div class="tt">${esc(x.title)}</div>`}${x.src ? `<small class="tsrc">${esc(x.src)}</small>` : ""}${x.note ? `<div class="note">${esc(x.note)}</div>` : ""}</article>`; }).join("")}`;
 }
 function bindTeams(app, rerender, onTeam) {
   const refresh = () => loadTeams().then((gone) => { rerender(); if (gone.length) toast(app, "삭제됐거나 나간 팀을 목록에서 뺐어요"); }).catch(() => {});
@@ -1031,10 +1043,13 @@ const md = (d) => `${d.getMonth() + 1}월 ${d.getDate()}일`;
 const mdS = (d) => `${d.getMonth() + 1}.${d.getDate()}`;
 const dKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const fromKey = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
-async function fetchStats() {
-  try { const c = JSON.parse(localStorage.getItem(STATS_KEY) || "null"); if (c && c.today === dKey(new Date()) && Date.now() - c.at < 30 * 60000) { S.rda = c; return; } } catch (e) {}
+const rdId = (link) => S.arts.find((a) => a.link === link)?.id || "u:" + String(link).slice(0, 200);
+async function fetchStats(force) {
+  if (!force) try { const c = JSON.parse(localStorage.getItem(STATS_KEY) || "null"); if (c && c.today === dKey(new Date()) && Date.now() - c.at < 30 * 60000) { S.rda = c; return; } } catch (e) {}
   try {
-    const r = await fetch("/api/stats"); if (!r.ok) throw new Error(r.status);
+    let r = await fetch("/api/stats").catch(() => null);
+    if (!r || !r.ok) { await new Promise((ok) => setTimeout(ok, 2000)); r = await fetch("/api/stats"); } // 한 번 더 시도
+    if (!r.ok) throw new Error(r.status);
     S.rda = await r.json();
     try { localStorage.setItem(STATS_KEY, JSON.stringify(S.rda)); } catch (e) {}
   } catch (e) { S.rda = S.rda || { error: true }; }
@@ -1095,7 +1110,7 @@ function statsHTML(wide) {
     <section class="st-card"><h3>${D.weekly ? "주별" : "일별"} 기사 수 <small>${D.weekly ? "오늘은 집계 중이라 연하게 표시" : "막대를 누르면 그날 기사를 볼 수 있어요"}</small></h3>${chartSVG(D, wide ? 1120 : 340)}</section>
     <div class="st-cols">
     <section class="st-card"><h3>많이 다룬 매체 <small>이 기간 상위 5</small></h3>${D.media.length ? D.media.map(([m, n], i) => `<div class="st-bar"><span>${i + 1}. ${esc(m)}</span><i><em style="width:${n / D.media[0][1] * 100}%;background:#34A98A"></em></i><b>${n}</b></div>`).join("") : `<div class="st-note small">아직 기사가 없어요</div>`}</section>
-    <section class="st-card"><h3>오늘 많이 보도된 소식 <small>여러 매체가 함께 다룬 기사</small></h3>${issues.length ? issues.map(([t, n, link], i) => `<a class="st-rank" href="${esc(safeUrl(link))}" target="_blank" rel="noopener"><em>${i + 1}</em><span>${esc(t)}</span><b>${n}개 매체</b></a>`).join("") : `<div class="st-note small">여러 매체가 함께 다룬 소식이 아직 없어요</div>`}</section>
+    <section class="st-card"><h3>오늘 많이 보도된 소식 <small>여러 매체가 함께 다룬 기사</small></h3>${issues.length ? issues.map(([t, n, link], i) => `<a class="st-rank" data-rd="${esc(rdId(link))}" href="${esc(safeUrl(link))}" target="_blank" rel="noopener"><em>${i + 1}</em><span>${esc(t)}</span><b>${n}개 매체</b></a>`).join("") : `<div class="st-note small">여러 매체가 함께 다룬 소식이 아직 없어요</div>`}</section>
     </div>
     <div class="st-note small">네이버 뉴스 검색 기준 · 30분마다 갱신 · 같은 소식을 여러 매체가 쓰면 각각 셉니다.</div>
   </div>`;
@@ -1106,7 +1121,7 @@ function statDaySheet(k) {
   if (!v) return head + `<div class="st-note">이날 기사 목록이 없어요.</div>`;
   const list = v.list || [];
   return head + `<p class="tm-p">모두 <b>${v.n}건</b>${k === dKey(new Date()) ? " (오늘, 집계 중)" : ""} · 같은 소식은 묶어서 여러 매체가 다룬 순으로 보여 줘요${list.length >= 80 ? " (상위 80개 소식)" : ""}.</p>
-    <div class="sd-list">${list.map(([t, src, link, media, at]) => `<a class="sd-it" href="${esc(safeUrl(link))}" target="_blank" rel="noopener"><span class="sd-t">${esc(t)}</span><span class="sd-m">${esc(src)}${media > 1 ? ` · <b>${media}개 매체</b>` : ""} · ${new Date(at).getHours()}시</span></a>`).join("") || `<div class="st-note">목록을 불러오지 못했어요. 새로고침 후 다시 열어 주세요.</div>`}</div>`;
+    <div class="sd-list">${list.map(([t, src, link, media, at]) => `<a class="sd-it" data-rd="${esc(rdId(link))}" href="${esc(safeUrl(link))}" target="_blank" rel="noopener"><span class="sd-t">${esc(t)}</span><span class="sd-m">${esc(src)}${media > 1 ? ` · <b>${media}개 매체</b>` : ""} · ${new Date(at).getHours()}시</span></a>`).join("") || `<div class="st-note">목록을 불러오지 못했어요. 새로고침 후 다시 열어 주세요.</div>`}</div>`;
 }
 function bindStats(app, rerender) {
   const openDay = (el) => { S.sheet = { kind: "statDay", arg: el.dataset.sday }; renderSheet(app); };

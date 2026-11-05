@@ -159,8 +159,8 @@ function todayView() {
 }
 function topicsView() {
   const seg = `<div class="pills" role="tablist" style="padding-bottom:4px"><button type="button" data-tmv="news" aria-pressed="${topicMode === "news"}">기사</button><button type="button" data-tmv="stats" aria-pressed="${topicMode === "stats"}">통계</button></div>`;
-  if (topicMode === "stats") return header("분야별") + `<div class="scroll">${seg}${statsHTML(false)}</div>`;
-  return header("분야별", `<button type="button" class="hd-link" data-addopen>+ 분야 추가</button>`) + `<div class="scroll">${seg}
+  if (topicMode === "stats") return header("분야별", `<button type="button" class="hb" data-refresh aria-label="새로고침">${ICON.refresh}</button>`) + `<div class="scroll">${seg}${statsHTML(false)}</div>`;
+  return header("분야별", `<button type="button" class="hd-link" data-addopen>+ 분야 추가</button><button type="button" class="hb" data-refresh aria-label="새로고침">${ICON.refresh}</button>`) + `<div class="scroll">${seg}
     <div class="tabs" role="list">${S.cats.map((c) => `<button type="button" role="listitem" data-jump="${c.id}" style="${cvars(c)}"><i></i>${esc(c.name)}</button>`).join("")}</div>
     ${S.cats.map((c) => `<div id="sec-${c.id}">${secHTML(c, 5, true)}</div>`).join("")}
     ${addSlotHTML()}</div>`;

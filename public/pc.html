@@ -211,7 +211,7 @@ function dexPC() {
       <div style="display:flex;flex-direction:column;gap:10px;font-size:14px;line-height:1.55;color:var(--sub)">
         <div><b style="color:var(--ink)">출석</b> · 하루 기사 3개를 읽으면 출석이에요.</div>
         <div><b style="color:var(--ink)">일반 친구</b> · 출석 5일마다 이삭이나 새싹이 중 하나가 랜덤으로 와요. (이삭이 40 · 새싹이 40)</div>
-        <div><b style="color:#8A6100">전설</b> · 연속·누적 출석 같은 기록, 설·추석·할로윈 같은 계절 한정, 전통·군복 시리즈로 만나요. 황금 알에서 나와요.</div>
+        <div><b style="color:#8A6100">전설</b> · 연속·누적 기록을 채우거나 특정 시기에 만날 수 있어요.</div>
       </div></section>
       <section class="card"><h3>가까운 전설</h3>${DEX.items.filter((x) => x.kind === "legend" && x.goal && !owned(x) && !DEX.earned.includes(x.id)).sort((a, b) => b.now / b.goal - a.now / a.goal).slice(0, 2).map((x) => `<button type="button" class="dx-mini" data-dex="${x.id}" style="border:none;background:none;padding:0;text-align:left;color:var(--ink)"><span style="width:44px;height:44px;flex:none;border-radius:50%;background:#FFF3CF;border:1.5px dashed #E8CB75;display:flex;align-items:center;justify-content:center;font-weight:850;color:#B98200">?</span><span style="flex:1;display:flex;flex-direction:column;gap:4px"><b style="font-size:13px">전설 No.${String(x.no).padStart(3, "0")}</b><small style="font-size:12px;color:#8A6100">${esc(x.cond)} · ${x.now}/${x.goal}</small><span class="dx-p big" style="height:5px"><i style="width:${Math.round(x.now / x.goal * 100)}%"></i></span></span></button>`).join("")}</section></aside></div>`;
 }

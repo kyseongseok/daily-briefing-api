@@ -347,8 +347,8 @@ function markRead(app, id) {
     else if (DEX.days % 5 === 0) {
       const rl = Math.random() < GOLD_RAND ? randLegend(now) : null;
       if (rl && giveGold(rl.id, true)) msg = "알이 반짝이더니… 황금알로 변했어요! 출석 3일이면 깨어나요";
-      else { const nx = pool[Math.floor(Math.random() * pool.length)]; if (nx) { nx.got = md(new Date()); nx.line = nx.line || "오늘 출석으로 만난 새 친구예요."; hatches.unshift(nx.id); } }
-    } else msg = `오늘 출석 완료! 다음 친구까지 출석 ${5 - (DEX.days % 5)}일`;
+      else { const nx = pool[Math.floor(Math.random() * pool.length)]; if (nx) { nx.got = md(new Date()); nx.line = nx.line || "오늘 출석으로 만난 새 친구예요."; hatches.unshift(nx.id); } else msg = "오늘 출석 완료! 이삭이가 새 친구를 준비하고 있어요 · 조금만 기다려 주세요"; }
+    } else msg = friendsLeft() ? `오늘 출석 완료! 다음 친구까지 출석 ${5 - (DEX.days % 5)}일` : "오늘 출석 완료! 이삭이가 새 친구를 준비하고 있어요";
     saveDex();
     if (hatches.length) FX.hatch = hatches; else if (msg) toast(app, msg);
   }
@@ -592,8 +592,11 @@ function dexArt(x, big) {
   if (x.hidden) return `<span class="q">?</span>`;
   return `<span class="sp-ph${owned(x) ? " on" : ""}" aria-hidden="true"><svg viewBox="0 0 48 48" width="${big ? 72 : 40}" height="${big ? 72 : 40}"><path d="M24 42V24" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" fill="none"/><path d="M24 28c-9 0-14-5-14-13 8 0 14 4 14 13z" fill="currentColor"/><path d="M24 23c8 0 13-5 13-12-7 0-13 4-13 12z" fill="currentColor" opacity=".7"/></svg></span>`;
 }
+const friendsLeft = () => DEX.items.some((x) => !owned(x) && x.kind !== "legend" && x.img);
 function dexNextHTML() {
   const left = 5 - (DEX.days % 5);
+  if (!friendsLeft()) return `<section class="dx-next"><div class="dx-egg" aria-hidden="true"><img src="${IMG.egg}" alt=""></div>
+    <div class="dx-nt"><b>새 친구를 준비하고 있어요</b><small>지금 있는 친구를 모두 만났어요! 새 친구가 오면 출석 5일마다 다시 찾아와요</small></div></section>${dexGoldHTML()}`;
   return `<section class="dx-next"><div class="dx-egg" aria-hidden="true"><img src="${IMG.egg}" alt=""></div>
     <div class="dx-nt"><b>다음 친구까지 출석 ${left}일</b><small>출석 5일마다 이삭이나 새싹이 중 하나가 와요</small>
     <div class="dx-bar">${[0, 1, 2, 3, 4].map((i) => `<i class="${i < DEX.days % 5 ? "on" : ""}"></i>`).join("")}</div></div></section>${dexGoldHTML()}`;

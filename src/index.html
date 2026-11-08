@@ -179,7 +179,7 @@ function scrapView() {
 function dexView() {
   return header("도감", `<span style="font-size:calc(12px * var(--s));color:var(--faint);padding-right:10px">출석 ${DEX.days}일 · 연속 ${DEX.streak}일</span>`) + `<div class="scroll">
     ${dexNextHTML()}${dexTabsHTML()}${dexGridHTML()}
-    <div style="font-size:calc(12px * var(--s));color:var(--faint);line-height:1.6;text-align:center;padding:4px 8px 0">이삭이 40 · 새싹이 40 · 전설 20, 모두 100마리</div></div>`;
+    <div style="font-size:calc(12px * var(--s));color:var(--faint);line-height:1.6;text-align:center;padding:4px 8px 0">이삭이 40 · 새싹이 40 · 전설 25, 모두 105마리</div></div>`;
 }
 function thumb(m) {
   if (m === "basic") return `<span class="pv" style="background:#F3F6FB"><span style="font-size:7px;font-weight:850;color:#0E1A36">DAILY <span style="color:#2457E6">BRIEFING</span></span><span style="background:#fff;border:1px solid #C9D8F8;border-radius:5px;padding:5px;display:flex;flex-direction:column;gap:3px"><span class="ln" style="width:40%;background:#0E1A36"></span><span class="ln" style="background:#CBD5E4"></span></span><span style="background:#fff;border-radius:5px;padding:4px 5px;display:flex;flex-direction:column;gap:4px;box-shadow:inset 2px 0 0 #1E8A4C"><span class="ln" style="background:#CBD5E4"></span><span class="ln" style="width:60%;background:#CBD5E4"></span></span><span style="background:#fff;border-radius:5px;padding:4px 5px;box-shadow:inset 2px 0 0 #5B47D6"><span class="ln" style="background:#CBD5E4"></span></span></span>`;

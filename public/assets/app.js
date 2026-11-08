@@ -427,10 +427,10 @@ function bindCommon(app, rerender) {
 }
 
 /* ── 도감: 이삭이 · 새싹이 ── 출석 5일마다 1마리(이삭이/새싹이 중 랜덤), 전설은 업적으로 */
-const IMG = {"basket": "assets/img/basket.webp", "crossed": "assets/img/crossed.webp", "magnifier": "assets/img/magnifier.webp", "megaphone": "assets/img/megaphone.webp", "rake": "assets/img/rake.webp", "run": "assets/img/run.webp", "skate": "assets/img/skate.webp", "sleepy": "assets/img/sleepy.webp", "think": "assets/img/think.webp", "wave": "assets/img/wave.webp", "egg": "assets/img/egg.webp", "eggTop": "assets/img/eggTop.webp", "eggBot": "assets/img/eggBot.webp", "gEgg": "assets/img/gEgg.webp", "gEggTop": "assets/img/gEggTop.webp", "gEggBot": "assets/img/gEggBot.webp", "center": "assets/img/center.webp", "kkeok": "assets/img/kkeok.webp", "band": "assets/img/band.webp", "drib": "assets/img/drib.webp", "bat": "assets/img/bat.webp", "kick": "assets/img/kick.webp", "hike": "assets/img/hike.webp", "lab": "assets/img/lab.webp", "ai": "assets/img/ai.webp", "drone": "assets/img/drone.webp", "paper": "assets/img/paper.webp", "cow": "assets/img/cow.webp", "hanwoo": "assets/img/hanwoo.webp", "apple": "assets/img/apple.webp", "pear": "assets/img/pear.webp", "tangerine": "assets/img/tangerine.webp", "scarecrow": "assets/img/scarecrow.webp", "weekend": "assets/img/weekend.webp", "book": "assets/img/book.webp", "vacation": "assets/img/vacation.webp", "walk": "assets/img/walk.webp", "iced": "assets/img/iced.webp", "night": "assets/img/night.webp", "report": "assets/img/report.webp", "tractor": "assets/img/tractor.webp", "weather": "assets/img/weather.webp", "kimchi": "assets/img/kimchi.webp", "king": "assets/img/king.webp", "dolsoe": "assets/img/dolsoe.webp", "seonbi": "assets/img/seonbi.webp", "doryeong": "assets/img/doryeong.webp", "assi": "assets/img/assi.webp", "liberty": "assets/img/liberty.webp", "army": "assets/img/army.webp", "pilot": "assets/img/pilot.webp", "kya": "assets/img/kya.webp", "newyear": "assets/img/newyear.webp", "watermelon": "assets/img/watermelon.webp", "halloween": "assets/img/halloween.webp", "dracula": "assets/img/dracula.webp", "xmas": "assets/img/xmas.webp", "golden": "assets/img/golden.webp", "sprout": "assets/img/sprout.webp", "s_pot": "assets/img/s_pot.webp", "s_tea": "assets/img/s_tea.webp", "s_box": "assets/img/s_box.webp", "s_rice": "assets/img/s_rice.webp", "s_sock": "assets/img/s_sock.webp", "s_rainbow": "assets/img/s_rainbow.webp", "s_songpyeon": "assets/img/s_songpyeon.webp", "s_maple": "assets/img/s_maple.webp", "s_angry": "assets/img/s_angry.webp", "s_heart": "assets/img/s_heart.webp", "s_sleepy": "assets/img/s_sleepy.webp", "s_balloon": "assets/img/s_balloon.webp", "bubble": "assets/img/bubble.webp", "s_headphone": "assets/img/s_headphone.webp", "gsprout": "assets/img/gsprout.webp", "cheer": "assets/img/cheer.webp"};
+const IMG = {"basket": "assets/img/basket.webp", "crossed": "assets/img/crossed.webp", "magnifier": "assets/img/magnifier.webp", "megaphone": "assets/img/megaphone.webp", "rake": "assets/img/rake.webp", "run": "assets/img/run.webp", "skate": "assets/img/skate.webp", "sleepy": "assets/img/sleepy.webp", "think": "assets/img/think.webp", "wave": "assets/img/wave.webp", "egg": "assets/img/egg.webp", "eggTop": "assets/img/eggTop.webp", "eggBot": "assets/img/eggBot.webp", "gEgg": "assets/img/gEgg.webp", "gEggTop": "assets/img/gEggTop.webp", "gEggBot": "assets/img/gEggBot.webp", "center": "assets/img/center.webp", "kkeok": "assets/img/kkeok.webp", "band": "assets/img/band.webp", "drib": "assets/img/drib.webp", "bat": "assets/img/bat.webp", "kick": "assets/img/kick.webp", "hike": "assets/img/hike.webp", "lab": "assets/img/lab.webp", "ai": "assets/img/ai.webp", "drone": "assets/img/drone.webp", "paper": "assets/img/paper.webp", "cow": "assets/img/cow.webp", "hanwoo": "assets/img/hanwoo.webp", "apple": "assets/img/apple.webp", "pear": "assets/img/pear.webp", "tangerine": "assets/img/tangerine.webp", "scarecrow": "assets/img/scarecrow.webp", "weekend": "assets/img/weekend.webp", "book": "assets/img/book.webp", "vacation": "assets/img/vacation.webp", "walk": "assets/img/walk.webp", "iced": "assets/img/iced.webp", "night": "assets/img/night.webp", "report": "assets/img/report.webp", "tractor": "assets/img/tractor.webp", "weather": "assets/img/weather.webp", "kimchi": "assets/img/kimchi.webp", "king": "assets/img/king.webp", "dolsoe": "assets/img/dolsoe.webp", "seonbi": "assets/img/seonbi.webp", "doryeong": "assets/img/doryeong.webp", "assi": "assets/img/assi.webp", "liberty": "assets/img/liberty.webp", "army": "assets/img/army.webp", "pilot": "assets/img/pilot.webp", "kya": "assets/img/kya.webp", "newyear": "assets/img/newyear.webp", "watermelon": "assets/img/watermelon.webp", "halloween": "assets/img/halloween.webp", "dracula": "assets/img/dracula.webp", "xmas": "assets/img/xmas.webp", "golden": "assets/img/golden.webp", "sprout": "assets/img/sprout.webp", "s_pot": "assets/img/s_pot.webp", "s_tea": "assets/img/s_tea.webp", "s_box": "assets/img/s_box.webp", "s_rice": "assets/img/s_rice.webp", "s_sock": "assets/img/s_sock.webp", "s_rainbow": "assets/img/s_rainbow.webp", "s_songpyeon": "assets/img/s_songpyeon.webp", "s_maple": "assets/img/s_maple.webp", "s_angry": "assets/img/s_angry.webp", "s_heart": "assets/img/s_heart.webp", "s_sleepy": "assets/img/s_sleepy.webp", "s_balloon": "assets/img/s_balloon.webp", "bubble": "assets/img/bubble.webp", "s_headphone": "assets/img/s_headphone.webp", "gsprout": "assets/img/gsprout.webp", "cheer": "assets/img/cheer.webp", "s_mandu": "assets/img/s_mandu.webp", "s_trampoline": "assets/img/s_trampoline.webp", "s_hiphop": "assets/img/s_hiphop.webp", "s_onsen": "assets/img/s_onsen.webp", "s_scared": "assets/img/s_scared.webp", "s_mummy": "assets/img/s_mummy.webp", "s_movie": "assets/img/s_movie.webp", "s_briefing": "assets/img/s_briefing.webp", "s_overtime": "assets/img/s_overtime.webp", "s_lab": "assets/img/s_lab.webp", "s_drone": "assets/img/s_drone.webp", "s_space": "assets/img/s_space.webp", "s_bungeo": "assets/img/s_bungeo.webp", "s_kimbap": "assets/img/s_kimbap.webp", "s_chef": "assets/img/s_chef.webp", "s_camping": "assets/img/s_camping.webp", "s_monday": "assets/img/s_monday.webp", "s_rain": "assets/img/s_rain.webp", "s_magic": "assets/img/s_magic.webp", "s_pirate": "assets/img/s_pirate.webp", "s_detective": "assets/img/s_detective.webp", "s_ninja": "assets/img/s_ninja.webp", "s_summit": "assets/img/s_summit.webp", "hipster": "assets/img/hipster.webp", "premier": "assets/img/premier.webp", "hero": "assets/img/hero.webp", "buster": "assets/img/buster.webp", "i_space": "assets/img/i_space.webp", "s_sebae": "assets/img/s_sebae.webp", "s_santa": "assets/img/s_santa.webp", "s_snowman": "assets/img/s_snowman.webp"};
 const DEX = {
   days: 0, streak: 0, last: "", reads: 0, shares: 0, goldEgg: null, goldQ: [], earned: [], fri: 0, early: 0, earlyLast: "",
-  totals: { isak: 40, sprout: 40, legend: 20 },
+  totals: { isak: 40, sprout: 40, legend: 25 },
   items: [
     { id: "i-wave", no: 1, kind: "isak", img: "wave", name: "굿모닝", line: "아침마다 먼저 인사하는 출근 요정." },
     { id: "i-run", no: 2, kind: "isak", img: "run", name: "러너 이삭이", line: "새 소식이 뜨면 제일 먼저 달려가요." },
@@ -484,9 +484,29 @@ const DEX = {
     { id: "s-12", no: 12, kind: "sprout", img: "s_sleepy", name: "꾸벅꾸벅", line: "점심 먹고 나면 눈꺼풀이 스르르… 5분만 잘게요." },
     { id: "s-13", no: 13, kind: "sprout", img: "s_balloon", name: "풍선 둥실", line: "풍선 세 개면 하늘까지 둥실! 기분도 같이 날아올라요." },
     { id: "s-14", no: 14, kind: "sprout", img: "s_headphone", name: "헤드폰", line: "좋아하는 노래 틀고 둠칫둠칫, 출근길이 신나요." },
-    { id: "s-15", no: 15, kind: "sprout", name: "새싹이" },
-    { id: "s-16", no: 16, kind: "sprout", name: "새싹이" },
-    { id: "s-17", no: 17, kind: "sprout", name: "새싹이" },
+    { id: "s-15", no: 15, kind: "sprout", img: "s_mandu", name: "만두새싹", line: "찜기 속이 제일 따끈해요. 만두인 척 숨어 있는 중!" },
+    { id: "s-16", no: 16, kind: "sprout", img: "s_trampoline", name: "방방새싹", line: "방방 뛰다 보면 하늘까지 닿을 것 같아요." },
+    { id: "s-17", no: 17, kind: "sprout", img: "s_hiphop", name: "힙찔이 새싹", line: "선글라스에 금목걸이, 오늘 브리핑은 내가 플로우 탄다." },
+    { id: "s-18", no: 18, kind: "sprout", img: "s_onsen", name: "온천새싹", line: "머리에 수건 하나 얹고 뜨끈하게, 피로가 싹 녹아요." },
+    { id: "s-19", no: 19, kind: "sprout", img: "s_scared", name: "쫄보새싹", line: "강아지가 반갑다는데… 그래도 무서워요." },
+    { id: "s-20", no: 20, kind: "sprout", img: "s_mummy", name: "미라새싹", line: "붕대 칭칭, 그래도 기사는 한쪽 눈으로 꼭 읽어요." },
+    { id: "s-21", no: 21, kind: "sprout", img: "s_movie", name: "집콕새싹", line: "팝콘 한 통이랑 노트북만 있으면 주말 끝." },
+    { id: "s-22", no: 22, kind: "sprout", img: "s_briefing", name: "브리핑새싹", line: "동그란 안경 쓰고 신문 정독, 오늘 소식은 내가 제일 먼저." },
+    { id: "s-23", no: 23, kind: "sprout", img: "s_overtime", name: "야근새싹", line: "커피 한 잔 더… 스탠드 불은 오늘도 늦게 꺼져요." },
+    { id: "s-24", no: 24, kind: "sprout", img: "s_lab", name: "연구새싹", line: "가운 입고 보안경 쓰고, 초록 용액에서 새 품종이 나올지도!" },
+    { id: "s-25", no: 25, kind: "sprout", img: "s_drone", name: "드론드라이버", line: "밭 위로 드론 한 바퀴, 스마트하게 농사짓는 중." },
+    { id: "s-26", no: 26, kind: "sprout", img: "s_space", name: "우주새싹", line: "우주에서도 쑥쑥! 무중력 재배 실험 중이에요." },
+    { id: "s-27", no: 27, kind: "sprout", img: "s_bungeo", name: "붕어빵새싹", line: "팥 사이에 쏙, 겨울 간식 속에 숨은 새싹." },
+    { id: "s-28", no: 28, kind: "sprout", img: "s_kimbap", name: "김밥새싹", line: "단면 한가운데 자리 잡았어요. 소풍 날엔 내가 주인공." },
+    { id: "s-29", no: 29, kind: "sprout", img: "s_chef", name: "셰프새싹", line: "돌솥에 쓱싹쓱싹, 우리 농산물로 만든 비빔밥이에요." },
+    { id: "s-30", no: 30, kind: "sprout", img: "s_camping", name: "캠핑새싹", line: "모닥불 앞 마시멜로 굽기, 불멍할 땐 뉴스도 쉬어요." },
+    { id: "s-31", no: 31, kind: "sprout", img: "s_monday", name: "월요일새싹", line: "알람이 울려도 이불 밖은 위험해요." },
+    { id: "s-32", no: 32, kind: "sprout", img: "s_rain", name: "장화새싹", line: "비 오는 날엔 장화 신고 첨벙첨벙!" },
+    { id: "s-33", no: 33, kind: "sprout", img: "s_magic", name: "마법새싹", line: "별 지팡이 한 번이면 씨앗이 반짝, 풍년이 와라!" },
+    { id: "s-34", no: 34, kind: "sprout", img: "s_pirate", name: "해적새싹", line: "보물지도 따라 출발! 오늘의 보물 기사는 어디에?" },
+    { id: "s-35", no: 35, kind: "sprout", img: "s_detective", name: "탐정새싹", line: "돋보기로 꼼꼼히, 가짜 뉴스는 내가 잡아요." },
+    { id: "s-36", no: 36, kind: "sprout", img: "s_ninja", name: "닌자새싹", line: "나뭇잎 표창 슉! 기사만 쏙쏙 읽고 조용히 사라져요." },
+    { id: "s-37", no: 37, kind: "sprout", img: "s_summit", name: "정상새싹", line: "드디어 정상! 깃발 꽂고 오늘도 한 걸음 더." },
     { id: "l-cheer", no: 1, kind: "legend", img: "cheer", name: "응원단장", cond: "연속 출석 30일 (주말·공휴일 빼고)", now: 0, goal: 30 },
     { id: "l-king", no: 2, kind: "legend", img: "king", name: "전하", cond: "출석 365일", now: 0, goal: 365 },
     { id: "l-kya", no: 3, kind: "legend", img: "kya", name: "캬~", cond: "금요일 저녁 출석 10번", now: 0, goal: 10 },
@@ -503,6 +523,14 @@ const DEX = {
     { id: "l-dracula", no: 15, kind: "legend", img: "dracula", name: "드라큘라", cond: "할로윈 주간에 가끔 나타나요 · 랜덤" },
     { id: "l-xmas", no: 16, kind: "legend", img: "xmas", name: "트리 장식", cond: "12월에 가끔 나타나요 · 랜덤" },
     { id: "l-golden", no: 17, kind: "legend", img: "golden", name: "황금 이삭", cond: "일반 이삭이 40종 모두 모으기", now: 0, goal: 40 },
+    { id: "l-hipster", no: 18, kind: "legend", img: "hipster", name: "힙스터", cond: "팀원과 기사 20번 공유하기", now: 0, goal: 20, line: "붐박스 켜고 마이크 잡았다, 오늘의 헤드라인은 랩으로." },
+    { id: "l-premier", no: 19, kind: "legend", img: "premier", name: "영의정이삭", cond: "출석 200일", now: 0, goal: 200, line: "부채 한 번 촤악, 청 살림을 두루 살피는 영의정 납시오." },
+    { id: "l-hero", no: 20, kind: "legend", img: "hero", name: "히어로", cond: "연속 출석 60일 (주말·공휴일 빼고)", now: 0, goal: 60, line: "초록 망토 휘날리며 출동! 농업 현장의 해결사." },
+    { id: "l-buster", no: 21, kind: "legend", img: "buster", name: "이삭버스터", cond: "기사 3,000개 읽기", now: 0, goal: 3000, line: "콤바인이 변신했다! 빨강·골드 로봇으로 수확 완료." },
+    { id: "l-space", no: 22, kind: "legend", img: "i_space", name: "우주이삭", cond: "아주 가끔 나타나요 · 랜덤", line: "헬멧을 뚫고 나온 이삭, 우주에서도 풍년을 꿈꿔요." },
+    { id: "l-sebae", no: 23, kind: "legend", img: "s_sebae", name: "세배새싹", cond: "설 연휴에 가끔 나타나요 · 랜덤", line: "새해 복 많이 받으세요! 색동 한복 입고 꾸벅." },
+    { id: "l-santa", no: 24, kind: "legend", img: "s_santa", name: "산타새싹", cond: "12월에 가끔 나타나요 · 랜덤", line: "선물 자루 한가득, 올해 착한 직원들한테 배달 가요." },
+    { id: "l-snowman", no: 25, kind: "legend", img: "s_snowman", name: "눈사람새싹", cond: "겨울(12~2월)에 가끔 나타나요 · 랜덤", line: "목도리 두르고 눈사람 변신, 겨울엔 내가 제일 귀여워요." },
     { id: "l-hidden", no: 6, kind: "legend", img: "bubble", name: "비눗방울", cond: "아주 가끔 나타나요 · 가장 희귀한 랜덤", hidden: true },
   ],
 };
@@ -510,7 +538,7 @@ let dexTab = "all";
 /* 도감 진행: 이 브라우저에 저장 (3단계에서 Supabase로) */
 const DEX_KEY = "daily-briefing-dex";
 const LEGEND_NOW = {
-  "l-cheer": () => DEX.streak, "l-king": () => DEX.days, "l-army": () => DEX.days, "l-dolsoe": () => DEX.reads,
+  "l-cheer": () => DEX.streak, "l-hero": () => DEX.streak, "l-premier": () => DEX.days, "l-buster": () => DEX.reads, "l-hipster": () => DEX.shares, "l-king": () => DEX.days, "l-army": () => DEX.days, "l-dolsoe": () => DEX.reads,
   "l-seonbi": () => S.scrap.size, "l-assi": () => DEX.shares, "l-kya": () => DEX.fri, "l-doryeong": () => DEX.early, "l-liberty": () => libertyNow(),
   "l-sprout": () => DEX.items.filter((x) => x.kind === "sprout" && x.got).length, "l-golden": () => DEX.items.filter((x) => x.kind === "isak" && x.got).length,
 };
@@ -549,7 +577,7 @@ const SEOLLAL = { 2027: [2, 7], 2028: [1, 27], 2029: [2, 13], 2030: [2, 3], 2031
 function randLegend(d = new Date()) {
   const m = d.getMonth() + 1, day = d.getDate(), sl = SEOLLAL[d.getFullYear()];
   const near = sl && Math.abs((new Date(d.getFullYear(), sl[0] - 1, sl[1]) - new Date(d.getFullYear(), m - 1, day)) / 864e5) <= 2;
-  const on = { "l-newyear": near, "l-watermelon": m === 7 || m === 8, "l-halloween": m === 10 && day >= 25, "l-dracula": m === 10 && day >= 25, "l-xmas": m === 12 };
+  const on = { "l-newyear": near, "l-sebae": near, "l-watermelon": m === 7 || m === 8, "l-halloween": m === 10 && day >= 25, "l-dracula": m === 10 && day >= 25, "l-xmas": m === 12, "l-santa": m === 12, "l-snowman": m === 12 || m <= 2, "l-space": true };
   const ok = (x) => x && !owned(x) && !DEX.earned.includes(x.id);
   const season = DEX.items.filter((x) => on[x.id] && ok(x));
   const bubble = DEX.items.find((x) => x.id === "l-hidden");
@@ -623,7 +651,7 @@ function dexGridHTML() {
   }).join("")}</div>`;
 }
 function dexTabsHTML() {
-  const t = [["all", "전체", DEX.items.filter(owned).length, 100], ["isak", "이삭이", dexCount("isak"), DEX.totals.isak], ["sprout", "새싹이", dexCount("sprout"), DEX.totals.sprout], ["legend", "전설", dexCount("legend"), DEX.totals.legend]];
+  const t = [["all", "전체", DEX.items.filter(owned).length, DEX.totals.isak + DEX.totals.sprout + DEX.totals.legend], ["isak", "이삭이", dexCount("isak"), DEX.totals.isak], ["sprout", "새싹이", dexCount("sprout"), DEX.totals.sprout], ["legend", "전설", dexCount("legend"), DEX.totals.legend]];
   return `<div class="dx-tabs" role="tablist">${t.map(([k, nm, n, tot]) => `<button type="button" role="tab" data-dextab="${k}" aria-selected="${dexTab === k}">${nm} <span>${n}/${tot}</span></button>`).join("")}</div>`;
 }
 function dexSheet(id) {
@@ -1211,7 +1239,7 @@ function showHatch(app, id) {
   const el = document.createElement("div"); el.className = "hx" + (gold ? " gold" : ""); el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "새 친구를 만났어요");
   el.innerHTML = `<div class="hx-card"><div class="hx-top">${gold ? "황금알이 깨어났어요!" : `출석 ${DEX.days}일 달성!`}</div>
     <div class="hx-stage"><div class="hx-egg"><img class="w" src="${gold ? IMG.gEgg : IMG.egg}" alt=""><img class="b" src="${gold ? IMG.gEggBot : IMG.eggBot}" alt=""><img class="a" src="${gold ? IMG.gEggTop : IMG.eggTop}" alt=""></div>${x.img ? `<img src="${IMG[x.img]}" alt="${esc(x.name)}">` : `<span class="hx-sp">${dexArt(x, true)}</span>`}</div>
-    <div class="hx-txt"><small>${dexNo(x)}</small><b>${esc(x.kind === "sprout" ? "새싹이" : x.name)}</b><span>${gold ? "전설 친구를 만났어요" : "새 친구를 만났어요"}</span></div>
+    <div class="hx-txt"><small>${dexNo(x)}</small><b>${esc(x.name)}</b><span>${gold ? "전설 친구를 만났어요" : "새 친구를 만났어요"}</span></div>
     <div class="hx-btns"><button type="button" class="cta" data-hxgo>도감에서 보기</button><button type="button" class="hx-x" data-hxclose>닫기</button></div></div>`;
   app.append(el);
   setTimeout(() => el.classList.add("shake"), 250);

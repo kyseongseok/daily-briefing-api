@@ -346,7 +346,7 @@ function markRead(app, id) {
     if (DEX.days === 1) { const w = DEX.items.find((x) => x.id === "i-wave"); if (w && !owned(w)) { w.got = md(new Date()); hatches.unshift(w.id); } }
     else if (DEX.days % 5 === 0) {
       const rl = Math.random() < GOLD_RAND ? randLegend(now) : null;
-      if (rl && giveGold(rl.id, true)) msg = "알이 반짝이더니… 황금알로 변했어요! 출석 3일이면 깨어나요";
+      if (rl && giveGold(rl.id, true)) hatches.push("!found");
       else { const nx = pool[Math.floor(Math.random() * pool.length)]; if (nx) { nx.got = md(new Date()); nx.line = nx.line || "오늘 출석으로 만난 새 친구예요."; hatches.unshift(nx.id); } else msg = "오늘 출석 완료! 이삭이가 새 친구를 준비하고 있어요 · 조금만 기다려 주세요"; }
     } else msg = friendsLeft() ? `오늘 출석 완료! 다음 친구까지 출석 ${5 - (DEX.days % 5)}일` : "오늘 출석 완료! 이삭이가 새 친구를 준비하고 있어요";
     saveDex();
@@ -527,10 +527,10 @@ function libertyNow() {
   return Object.values(n).filter((v) => v >= 2).length;
 }
 /* ── 황금알 ──
-   - 조건 전설: 조건을 채우는 순간 황금알을 받음 → 그 뒤 출석 3일이면 부화
+   - 조건 전설: 조건을 채우는 순간 황금알을 받음 → 그 뒤 출석 5일이면 부화
    - 한 번에 하나만 품고, 그동안 받은 알은 차례로 대기 (goldQ)
-   - 일반 알(출석 5일)은 따로 계속 참. 일반 알이 다 찼을 때 5% 확률로 랜덤 전설 황금알로 바뀜 */
-const GOLD_NEED = 3, GOLD_RAND = 0.05;
+   - 일반 알(출석 5일)은 따로 계속 참. 일반 알이 다 찼을 때 5% 확률로 랜덤 전설 황금알로 바뀜 → "반짝이는 알을 발견" 화면을 띄움 */
+const GOLD_NEED = 5, GOLD_RAND = 0.05;
 function giveGold(id, rand) {
   if (DEX.earned.includes(id)) return false;
   DEX.earned.push(id);
@@ -1199,11 +1199,12 @@ function applyFX(app) {
   const hatch = FX.hatch, goldNew = FX.goldNew;
   ["read", "att", "attDone", "star", "relAnim", "enter", "hatch"].forEach((k) => delete FX[k]);
   if (hatch) { HXQ = [...hatch]; setTimeout(() => hatchNext(app), 900); }
-  if (goldNew && !hatch) { delete FX.goldNew; } if (goldNew && !hatch) toast(app, "전설 조건 달성! 황금알을 받았어요 · 출석 3일이면 깨어나요");
+  if (goldNew && !hatch) { delete FX.goldNew; } if (goldNew && !hatch) toast(app, `전설 조건 달성! 황금알을 받았어요 · 출석 ${GOLD_NEED}일이면 깨어나요`);
 }
 let HXQ = [];
-function hatchNext(app) { const id = HXQ.shift(); if (id) showHatch(app, id); else if (FX.goldNew) { delete FX.goldNew; toast(app, "전설 조건 달성! 황금알을 받았어요 · 출석 3일이면 깨어나요"); } }
+function hatchNext(app) { const id = HXQ.shift(); if (id) showHatch(app, id); else if (FX.goldNew) { delete FX.goldNew; toast(app, `전설 조건 달성! 황금알을 받았어요 · 출석 ${GOLD_NEED}일이면 깨어나요`); } }
 function showHatch(app, id) {
+  if (id === "!found") return showFound(app);
   const x = DEX.items.find((y) => y.id === id);
   $$(".hx", app).forEach((n) => n.remove());
   const gold = x.kind === "legend";
@@ -1212,6 +1213,19 @@ function showHatch(app, id) {
     <div class="hx-stage"><div class="hx-egg"><img class="w" src="${gold ? IMG.gEgg : IMG.egg}" alt=""><img class="b" src="${gold ? IMG.gEggBot : IMG.eggBot}" alt=""><img class="a" src="${gold ? IMG.gEggTop : IMG.eggTop}" alt=""></div>${x.img ? `<img src="${IMG[x.img]}" alt="${esc(x.name)}">` : `<span class="hx-sp">${dexArt(x, true)}</span>`}</div>
     <div class="hx-txt"><small>${dexNo(x)}</small><b>${esc(x.kind === "sprout" ? "새싹이" : x.name)}</b><span>${gold ? "전설 친구를 만났어요" : "새 친구를 만났어요"}</span></div>
     <div class="hx-btns"><button type="button" class="cta" data-hxgo>도감에서 보기</button><button type="button" class="hx-x" data-hxclose>닫기</button></div></div>`;
+  app.append(el);
+  setTimeout(() => el.classList.add("shake"), 250);
+  setTimeout(() => el.classList.add("open"), 1500);
+}
+
+/* 랜덤 전설: 일반 알이 흔들리다 황금알로 바뀌는 장면 */
+function showFound(app) {
+  $$(".hx", app).forEach((n) => n.remove());
+  const el = document.createElement("div"); el.className = "hx gold found"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "반짝이는 알을 발견했어요");
+  el.innerHTML = `<div class="hx-card"><div class="hx-top">출석 ${DEX.days}일 달성!</div>
+    <div class="hx-stage"><div class="hx-egg"><img class="w" src="${IMG.egg}" alt=""><img class="g" src="${IMG.gEgg}" alt=""><i class="sp s1">✦</i><i class="sp s2">✦</i><i class="sp s3">✦</i></div></div>
+    <div class="hx-txt"><b>앗, 이 알… 뭔가 달라요!</b><span>반짝이는 알을 발견했어요<br>${DEX.goldQ.length ? "지금 품는 황금알이 깨어나면 이어서 품어요" : `출석 ${GOLD_NEED}일 동안 품으면 깨어나요`}</span></div>
+    <div class="hx-btns"><button type="button" class="cta" data-hxgo>품기</button></div></div>`;
   app.append(el);
   setTimeout(() => el.classList.add("shake"), 250);
   setTimeout(() => el.classList.add("open"), 1500);

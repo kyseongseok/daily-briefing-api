@@ -471,6 +471,16 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .hx.gold .hx-top { background: linear-gradient(90deg, #F7D774, #E8B53A); color: #4A3300; }
 .hx-stage::before { content: ""; position: absolute; left: 50%; top: 50%; width: 220px; height: 220px; margin: -110px 0 0 -110px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 214, 102, .55), rgba(255, 214, 102, 0) 65%); opacity: 0; transform: scale(.4); pointer-events: none; }
 .hx.gold.open .hx-stage::before { animation: glow 1.2s ease-out forwards; }
+/* 반짝이는 알 발견 */
+.hx-egg .g { bottom: 0; height: 152px; opacity: 0; transform: translateX(-50%) scale(.9); transition: opacity .5s, transform .6s cubic-bezier(.34, 1.56, .64, 1); }
+.hx.found.open .hx-egg .g { opacity: 1; transform: translateX(-50%) scale(1.05); }
+.hx.found.open .hx-egg .w { transition: opacity .4s; }
+.hx-egg .sp { position: absolute; font-style: normal; color: #F2B705; font-size: 18px; opacity: 0; pointer-events: none; }
+.hx-egg .s1 { left: -14px; top: 20px; } .hx-egg .s2 { right: -16px; top: 52px; font-size: 22px; } .hx-egg .s3 { left: 6px; bottom: 4px; font-size: 14px; }
+.hx.found.open .hx-egg .sp { animation: twinkle 1.4s ease-in-out .3s infinite; }
+.hx.found.open .hx-egg .s2 { animation-delay: .7s; } .hx.found.open .hx-egg .s3 { animation-delay: 1s; }
+@keyframes twinkle { 0%, 100% { opacity: 0; transform: scale(.4); } 50% { opacity: 1; transform: scale(1.1); } }
+@media (prefers-reduced-motion: reduce) { .hx.found .hx-egg { display: block; } .hx.found .hx-egg .w { opacity: 0; } .hx.found .hx-egg .g { opacity: 1; } }
 @keyframes glow { 40% { opacity: 1; transform: scale(1.1); } 100% { opacity: .55; transform: scale(1); } }
 
 /* 빈 분야 칸 */

@@ -585,3 +585,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .sd-m { font-size: calc(12px * var(--s)); color: var(--faint); }
 .sd-m b { color: #1F7F66; font-weight: 700; }
 .sheet, .tour .tr-card { overscroll-behavior: contain; }
+
+/* 기사 카드 전체를 눌러 열기 */
+[data-card] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+[data-card]:active { background-color: color-mix(in srgb, var(--surface) 92%, var(--ink, #000)); }

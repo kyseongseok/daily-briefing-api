@@ -201,7 +201,7 @@ const chipCat = (c) => `<span class="chip cat" style="${cvars(c)}">${esc(c.name)
 function itemHTML(a, opts = {}) {
   const c = cat(a.cat) || { id: "etc", name: "지운 분야", p: 6 }, r = S.read.has(a.id);
   const meta = r ? `읽음 · ${esc(a.src)}` : `${opts.chip === false ? "" : chipCat(c)}${esc(a.src)} · ${esc(a.time)}${a.media ? ` · ${a.media}개 매체` : ""}`;
-  return `<article class="it${r ? " read" : ""}${a.fresh ? " fresh" : ""}" data-aid="${a.id}" style="${cvars(c)}">${opts.n ? `<div class="n">${opts.n}</div>` : ""}
+  return `<article class="it${r ? " read" : ""}${a.fresh ? " fresh" : ""}" data-aid="${a.id}" data-card style="${cvars(c)}">${opts.n ? `<div class="n">${opts.n}</div>` : ""}
     <div class="b"><button type="button" class="t" data-open="${a.id}">${esc(a.title)}</button><div class="m">${meta}</div></div>
     <div class="ibs"><button type="button" class="ib" data-scrap="${a.id}" aria-pressed="${S.scrap.has(a.id)}" aria-label="스크랩">${ICON.star}</button><button type="button" class="ib" data-share="${a.id}" aria-label="공유">${ICON.share}</button></div></article>`;
 }
@@ -213,7 +213,7 @@ function topHTML(withRel = true) {
   const c = cat(a.cat), rels = a.rel || [], n = relCount(a), more = n - rels.length;
   const rel = withRel && rels.length ? `<div class="relbox${S.relOpen && !FX.relAnim ? " open" : ""}"><div class="relin">${rels.map(([m, t]) => `<div><span>${esc(m)}</span>${esc(t)}</div>`).join("")}${more > 0 ? `<div style="color:var(--faint)">외 ${more}건</div>` : ""}</div></div>` : "";
   const info = `${esc(a.src)} · ${a.time}${n ? ` · 관련 ${n}건` : ""}`;
-  return `<article class="top"><div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${a.media ? `<span class="chip issue">이슈 · <b class="num">${a.media}</b>개 매체</span>` : ""}${chipCat(c)}</div>
+  return `<article class="top" data-card><div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${a.media ? `<span class="chip issue">이슈 · <b class="num">${a.media}</b>개 매체</span>` : ""}${chipCat(c)}</div>
     <button type="button" class="t" data-open="${a.id}" style="background:none;border:none;padding:0;text-align:left;color:inherit">${esc(a.title)}</button>
     ${a.sum ? `<p class="sum">${esc(a.sum)}</p>` : ""}
     <div class="m">${withRel && rels.length ? `<button type="button" class="relbtn" data-rel aria-expanded="${!!S.relOpen}" style="margin-right:auto">${info} <span>${S.relOpen ? "▴" : "▾"}</span></button>` : `<span style="margin-right:auto">${info}</span>`}
@@ -359,6 +359,12 @@ function bindCommon(app, rerender) {
   app.addEventListener("click", (e) => {
     const a = e.target.closest("a[data-rd]"); if (!a || !app.contains(a)) return;
     markRead(app, a.dataset.rd); setTimeout(rerender, 0);
+  });
+  /* 기사 카드: 제목뿐 아니라 요약·빈 곳을 눌러도 기사 열기 (별·공유·관련 기사 버튼은 제외, 글자 드래그 중이면 무시) */
+  app.addEventListener("click", (e) => {
+    const card = e.target.closest("[data-card]"); if (!card || !app.contains(card)) return;
+    if (e.target.closest("button, a, input, textarea, .relbox") || String(window.getSelection && window.getSelection()).trim()) return;
+    const b = card.querySelector("[data-open]"); if (b) b.click();
   });
   app.addEventListener("click", (e) => {
     const t = e.target.closest("button, [data-close]"); if (!t || !app.contains(t)) return;

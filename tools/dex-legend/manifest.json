@@ -1,0 +1,253 @@
+{
+ "note": "전설 후보 31종 (이삭이 5 · 새싹이 26). 아직 앱 도감(src/app.js DEX)에는 연결 전 — 얻는 조건 정한 뒤 tools/imgs.json에 넣고 빌드",
+ "items": [
+  {
+   "key": "li_hipster",
+   "kind": "isak",
+   "name": "힙스터",
+   "concept": "거꾸로 쓴 스냅백, 선글라스, 금목걸이, 붐박스와 마이크",
+   "original": "original/li_hipster.png",
+   "web": "web/li_hipster.webp"
+  },
+  {
+   "key": "li_yeonguijeong",
+   "kind": "isak",
+   "name": "영의정이삭",
+   "concept": "남색 관복, 학 흉배, 금색 각대, 사모, 부채",
+   "original": "original/li_yeonguijeong.png",
+   "web": "web/li_yeonguijeong.webp"
+  },
+  {
+   "key": "li_hero",
+   "kind": "isak",
+   "name": "히어로",
+   "concept": "금색 히어로 슈트에 RDA 로고, 초록 망토, 비행 포즈",
+   "original": "original/li_hero.png",
+   "web": "web/li_hero.webp"
+  },
+  {
+   "key": "li_buster",
+   "kind": "isak",
+   "name": "이삭버스터",
+   "concept": "콤바인이 변신한 빨강·골드 로봇, 유리 조종석 탑승",
+   "original": "original/li_buster.png",
+   "web": "web/li_buster.webp"
+  },
+  {
+   "key": "ls_mandu",
+   "kind": "sprout",
+   "name": "만두새싹",
+   "concept": "만두 찜기 속, 만두들 사이에 쏙",
+   "original": "original/ls_mandu.png",
+   "web": "web/ls_mandu.webp"
+  },
+  {
+   "key": "ls_trampoline",
+   "kind": "sprout",
+   "name": "방방새싹",
+   "concept": "트램펄린 위 점프",
+   "original": "original/ls_trampoline.png",
+   "web": "web/ls_trampoline.webp"
+  },
+  {
+   "key": "ls_hiphop",
+   "kind": "sprout",
+   "name": "힙찔이 새싹",
+   "concept": "스냅백, 선글라스, 금목걸이, 팔짱",
+   "original": "original/ls_hiphop.png",
+   "web": "web/ls_hiphop.webp"
+  },
+  {
+   "key": "ls_onsen",
+   "kind": "sprout",
+   "name": "온천새싹",
+   "concept": "나무 욕조에 머리 수건",
+   "original": "original/ls_onsen.png",
+   "web": "web/ls_onsen.webp"
+  },
+  {
+   "key": "ls_scared",
+   "kind": "sprout",
+   "name": "쫄보새싹",
+   "concept": "푸들 강아지 앞에서 식은땀",
+   "original": "original/ls_scared.png",
+   "web": "web/ls_scared.webp"
+  },
+  {
+   "key": "ls_mummy",
+   "kind": "sprout",
+   "name": "미라새싹",
+   "concept": "붕대 칭칭, 한쪽 눈 발광",
+   "original": "original/ls_mummy.png",
+   "web": "web/ls_mummy.webp"
+  },
+  {
+   "key": "ls_movie",
+   "kind": "sprout",
+   "name": "집콕새싹",
+   "concept": "노트북 영화와 팝콘",
+   "original": "original/ls_movie.png",
+   "web": "web/ls_movie.webp"
+  },
+  {
+   "key": "ls_briefing",
+   "kind": "sprout",
+   "name": "브리핑새싹",
+   "concept": "동그란 안경, 신문, 커피",
+   "original": "original/ls_briefing.png",
+   "web": "web/ls_briefing.webp"
+  },
+  {
+   "key": "ls_overtime",
+   "kind": "sprout",
+   "name": "야근새싹",
+   "concept": "반쯤 감긴 눈, 책상, 커피, 스탠드",
+   "original": "original/ls_overtime.png",
+   "web": "web/ls_overtime.webp"
+  },
+  {
+   "key": "ls_lab",
+   "kind": "sprout",
+   "name": "연구새싹",
+   "concept": "가운, 보안경, 시험관",
+   "original": "original/ls_lab.png",
+   "web": "web/ls_lab.webp"
+  },
+  {
+   "key": "ls_drone",
+   "kind": "sprout",
+   "name": "드론드라이버",
+   "concept": "밭 위로 드론 조종",
+   "original": "original/ls_drone.png",
+   "web": "web/ls_drone.webp"
+  },
+  {
+   "key": "ls_space",
+   "kind": "sprout",
+   "name": "우주새싹",
+   "concept": "우주복, 유리 헬멧, 행성과 별",
+   "original": "original/ls_space.png",
+   "web": "web/ls_space.webp"
+  },
+  {
+   "key": "li_space",
+   "kind": "isak",
+   "name": "우주이삭",
+   "concept": "우주복, 헬멧을 뚫고 나온 이삭, 빨간 망토",
+   "original": "original/li_space.png",
+   "web": "web/li_space.webp"
+  },
+  {
+   "key": "ls_sebae",
+   "kind": "sprout",
+   "name": "세배새싹",
+   "concept": "색동 한복, 방석 위 세배",
+   "original": "original/ls_sebae.png",
+   "web": "web/ls_sebae.webp"
+  },
+  {
+   "key": "ls_santa",
+   "kind": "sprout",
+   "name": "산타새싹",
+   "concept": "산타 옷, 선물 자루",
+   "original": "original/ls_santa.png",
+   "web": "web/ls_santa.webp"
+  },
+  {
+   "key": "ls_snowman",
+   "kind": "sprout",
+   "name": "눈사람새싹",
+   "concept": "눈사람 몸통, 빨간 목도리",
+   "original": "original/ls_snowman.png",
+   "web": "web/ls_snowman.webp"
+  },
+  {
+   "key": "ls_bungeo",
+   "kind": "sprout",
+   "name": "붕어빵새싹",
+   "concept": "붕어빵 속 팥 사이로 빼꼼",
+   "original": "original/ls_bungeo.png",
+   "web": "web/ls_bungeo.webp"
+  },
+  {
+   "key": "ls_kimbap",
+   "kind": "sprout",
+   "name": "김밥새싹",
+   "concept": "김밥 단면 속",
+   "original": "original/ls_kimbap.png",
+   "web": "web/ls_kimbap.webp"
+  },
+  {
+   "key": "ls_chef",
+   "kind": "sprout",
+   "name": "셰프새싹",
+   "concept": "셰프 모자, 돌솥 비빔밥",
+   "original": "original/ls_chef.png",
+   "web": "web/ls_chef.webp"
+  },
+  {
+   "key": "ls_camping",
+   "kind": "sprout",
+   "name": "캠핑새싹",
+   "concept": "캠핑 의자, 마시멜로 굽기",
+   "original": "original/ls_camping.png",
+   "web": "web/ls_camping.webp"
+  },
+  {
+   "key": "ls_monday",
+   "kind": "sprout",
+   "name": "월요일새싹",
+   "concept": "이불 부리또, 알람시계",
+   "original": "original/ls_monday.png",
+   "web": "web/ls_monday.webp"
+  },
+  {
+   "key": "ls_rain",
+   "kind": "sprout",
+   "name": "장화새싹",
+   "concept": "노란 우비, 우산, 물웅덩이",
+   "original": "original/ls_rain.png",
+   "web": "web/ls_rain.webp"
+  },
+  {
+   "key": "ls_magic",
+   "kind": "sprout",
+   "name": "마법새싹",
+   "concept": "보라 마법사 모자와 망토, 별 지팡이",
+   "original": "original/ls_magic.png",
+   "web": "web/ls_magic.webp"
+  },
+  {
+   "key": "ls_pirate",
+   "kind": "sprout",
+   "name": "해적새싹",
+   "concept": "해적 모자, 안대, 보물지도",
+   "original": "original/ls_pirate.png",
+   "web": "web/ls_pirate.webp"
+  },
+  {
+   "key": "ls_detective",
+   "kind": "sprout",
+   "name": "탐정새싹",
+   "concept": "체크 모자, 트렌치코트, 돋보기",
+   "original": "original/ls_detective.png",
+   "web": "web/ls_detective.webp"
+  },
+  {
+   "key": "ls_ninja",
+   "kind": "sprout",
+   "name": "닌자새싹",
+   "concept": "닌자복, 나뭇잎 표창",
+   "original": "original/ls_ninja.png",
+   "web": "web/ls_ninja.webp"
+  },
+  {
+   "key": "ls_summit",
+   "kind": "sprout",
+   "name": "정상새싹",
+   "concept": "배낭, 등산화, 정상에 깃발",
+   "original": "original/ls_summit.png",
+   "web": "web/ls_summit.webp"
+  }
+ ]
+}

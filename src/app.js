@@ -320,18 +320,26 @@ function playIntro(app, onDone) {
 }
 
 /* 공통 클릭 처리 */
+/* 연속 출석: 마지막 출석일과 오늘 사이에 빠진 평일이 없으면 이어짐 (주말·공휴일은 빼고 셈) */
+const HOLIDAYS = new Set(["2026-12-25", "2027-1-1", "2027-2-8", "2027-2-9", "2027-3-1", "2027-3-3", "2027-5-5", "2027-5-13", "2027-6-3", "2027-8-16", "2027-9-14", "2027-9-15", "2027-9-16", "2027-10-4", "2027-10-11", "2027-12-27"]);
+const restDay = (d) => d.getDay() === 0 || d.getDay() === 6 || HOLIDAYS.has(`${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`);
+function gapOk(lastKey) {
+  if (!lastKey) return false;
+  const [y, m, dd] = lastKey.split("-").map(Number), d = new Date(y, m - 1, dd), t = new Date(); t.setHours(0, 0, 0, 0);
+  for (d.setDate(d.getDate() + 1); d < t; d.setDate(d.getDate() + 1)) if (!restDay(d)) return false;
+  return true;
+}
 /* 기사 하나 읽음 → 하루 3개면 출석. 오늘·분야별·스크랩·팀 스크랩함·통계 어디서 열어도 똑같이 셈 */
 function markRead(app, id) {
   if (S.readDay !== todayKey()) { S.read = new Set(); S.readDay = todayKey(); } // 밤새 켜 둔 화면: 날이 바뀌면 오늘 읽음을 새로 셈
   const was = S.read.has(id), before = S.read.size; S.read.add(id); savePrefs(); if (!was) { DEX.reads += 1; saveDex(); }
   if (!was) { FX.read = id; if (before < 3) FX.att = S.read.size; }
-  if (!was && before < 3 && S.read.size >= 3) {
+  if (!was && before < 3 && S.read.size >= 3 && DEX.last !== todayKey()) { // 출석은 하루 한 번 (다른 기기에서 이미 했으면 넘어감)
     FX.attDone = true;
-    const y = new Date(); y.setDate(y.getDate() - 1); const yk = `${y.getFullYear()}-${y.getMonth() + 1}-${y.getDate()}`;
     const now = new Date(), hatches = [];
-    DEX.streak = DEX.last === yk ? DEX.streak + 1 : 1; DEX.days += 1; DEX.last = todayKey();
+    DEX.streak = gapOk(DEX.last) ? DEX.streak + 1 : 1; DEX.days += 1; DEX.last = todayKey();
     if (now.getDay() === 5 && now.getHours() >= 17) DEX.fri += 1; // 금요일 저녁 출석
-    if (now.getHours() < 8) { DEX.early = DEX.earlyLast === yk ? DEX.early + 1 : 1; DEX.earlyLast = todayKey(); } else DEX.early = 0; // 아침 8시 전 연속 출석
+    if (now.getHours() < 8) { DEX.early = gapOk(DEX.earlyLast) ? DEX.early + 1 : 1; DEX.earlyLast = todayKey(); } else if (!restDay(now)) DEX.early = 0; // 아침 8시 전 연속 출석 (주말·공휴일에 늦게 와도 끊기지 않음)
     goldTick(hatches);
     const pool = DEX.items.filter((x) => !owned(x) && x.kind !== "legend" && x.img);
     let msg = "";
@@ -479,7 +487,7 @@ const DEX = {
     { id: "s-15", no: 15, kind: "sprout", name: "새싹이" },
     { id: "s-16", no: 16, kind: "sprout", name: "새싹이" },
     { id: "s-17", no: 17, kind: "sprout", name: "새싹이" },
-    { id: "l-cheer", no: 1, kind: "legend", img: "cheer", name: "응원단장", cond: "연속 출석 30일", now: 0, goal: 30 },
+    { id: "l-cheer", no: 1, kind: "legend", img: "cheer", name: "응원단장", cond: "연속 출석 30일 (주말·공휴일 빼고)", now: 0, goal: 30 },
     { id: "l-king", no: 2, kind: "legend", img: "king", name: "전하", cond: "출석 365일", now: 0, goal: 365 },
     { id: "l-kya", no: 3, kind: "legend", img: "kya", name: "캬~", cond: "금요일 저녁 출석 10번", now: 0, goal: 10 },
     { id: "l-newyear", no: 4, kind: "legend", img: "newyear", name: "새해 복", cond: "설 연휴에 가끔 나타나요 · 랜덤" },
@@ -565,6 +573,7 @@ function loadDex() {
     DEX_FIELDS.forEach((k) => { if (d[k] != null) DEX[k] = d[k]; });
     Object.entries(d.got || {}).forEach(([id, when]) => { const x = DEX.items.find((i) => i.id === id); if (x) x.got = when; });
   } catch (e) {}
+  Object.assign(DEX, mergeGold(DEX, {}, Object.fromEntries(DEX.items.filter(owned).map((x) => [x.id, 1])))); // 이미 만난 전설의 알이 남아 있으면 정리
   dexProgress(); checkLegends();
 }
 function saveDex() {
@@ -618,7 +627,7 @@ function dexSheet(id) {
   const x = DEX.items.find((y) => y.id === id), o = owned(x), lg = x.kind === "legend";
   return `<div class="grab"></div><div class="sh-head"><h2>${o ? esc(x.name) : lg ? "아직 못 만난 전설" : "아직 못 만난 친구"}</h2><button type="button" class="x" data-close>닫기</button></div>
     <div class="dx-big${x.kind === "sprout" ? " spr" : ""}${lg ? " lg" : ""}">${dexArt(x, true)}</div>
-    ${o ? `<p class="dx-line">${esc(x.line)}</p><div class="dx-meta">${dexNo(x)} · ${x.got}에 만났어요</div>`
+    ${o ? `<p class="dx-line">${esc(x.line || (lg ? `‘${x.cond}’ 기록으로 깨어난 전설이에요.` : "출석으로 만난 친구예요."))}</p><div class="dx-meta">${dexNo(x)} · ${x.got}에 만났어요</div>`
       : lg && goldState(x) ? `<p class="dx-line">${goldState(x) === "hatching" ? `황금알을 품고 있어요. 출석 ${DEX.goldEgg.need - DEX.goldEgg.done}일 뒤 깨어나요.` : "황금알을 받았어요. 지금 품는 알이 깨어나면 이어서 품어요."}</p>`
       : lg ? `<p class="dx-line">${x.hidden ? "어떻게 얻는지는 비밀이에요. 꾸준히 읽다 보면 만날 수 있어요." : `조건: ${esc(x.cond)}. 채우면 누구인지 공개돼요.`}</p>${x.goal ? `<div class="dx-p big"><i style="width:${Math.round(x.now / x.goal * 100)}%"></i></div><div class="dx-meta">지금 ${x.now} / ${x.goal}</div>` : ""}`
       : `<p class="dx-line">출석 5일마다 랜덤으로 와요. 다음 친구까지 출석 ${5 - (DEX.days % 5)}일 남았어요.</p>`}`;
@@ -862,8 +871,17 @@ function mergeDex(ld, sd) {
   const sFirst = (sd.days || 0) > (ld.days || 0) || ((sd.days || 0) === (ld.days || 0) && dayNum(sd.last) >= dayNum(ld.last));
   const hi = sFirst ? sd : ld, lo = sFirst ? ld : sd;
   return { ...lo, ...hi, reads: Math.max(sd.reads || 0, ld.reads || 0), shares: Math.max(sd.shares || 0, ld.shares || 0),
-    got: { ...(lo.got || {}), ...(hi.got || {}) }, earned: uniq(lo.earned || [], hi.earned || []),
-    goldEgg: hi.goldEgg != null ? hi.goldEgg : lo.goldEgg ?? null, goldQ: hi.goldEgg != null ? hi.goldQ || [] : lo.goldQ || [] };
+    got: { ...(lo.got || {}), ...(hi.got || {}) }, earned: uniq(lo.earned || [], hi.earned || []), ...mergeGold(hi, lo, { ...(lo.got || {}), ...(hi.got || {}) }) };
+}
+/* 황금알 합치기: 어느 기기에서든 이미 깨어난 전설의 알은 버리고, 같은 알이면 더 많이 찬 쪽을 씀
+   (전에는 한 기기에서 부화해 알이 비면 다른 기기의 '부화 전' 알이 되살아났음) */
+function mergeGold(hi, lo, got) {
+  const live = (e) => e && e.id && !got[e.id];
+  let cur = [hi.goldEgg, lo.goldEgg].filter(live).reduce((a, e) => (!a ? e : a.id === e.id && (e.done || 0) > (a.done || 0) ? e : a), null);
+  const seen = new Set(cur ? [cur.id] : []), q = [];
+  [...(hi.goldQ || []), ...(lo.goldQ || []), lo.goldEgg, hi.goldEgg].forEach((e) => { if (live(e) && !seen.has(e.id)) { seen.add(e.id); q.push({ id: e.id, rand: !!e.rand }); } });
+  if (!cur && q.length) { const nx = q.shift(); cur = { id: nx.id, need: GOLD_NEED, done: 0, from: todayKey(), rand: nx.rand }; }
+  return { goldEgg: cur ? { ...cur } : null, goldQ: q };
 }
 /* 합치기: base = 마지막으로 맞춘 기록, l = 이 기기, s = 서버
    - base가 없으면(처음 연결) 설정·분야는 서버 것, 스크랩·팀·출석은 합침

@@ -28,7 +28,9 @@ async function me(db, code, token) {
   if (!m) throw fail(403, "not-member");
   return { team, m };
 }
+const MAX_MEMBERS = 300, MAX_ITEMS = 3000; // 팀 하나의 상한 (아무나 무한히 넣어 저장 공간을 채우지 못하게)
 async function addMember(db, code, nick) {
+  if ((await db("GET", "team_members", `?team=eq.${code}&select=id&limit=${MAX_MEMBERS}`)).length >= MAX_MEMBERS) throw fail(409, "team-full");
   const member = "m" + randomBytes(6).toString("hex"), token = randomBytes(18).toString("base64url");
   await db("POST", "team_members", "", { team: code, id: member, token_hash: sha(token), name: nick });
   return { member, token };
@@ -55,7 +57,8 @@ export default async function handler(req, res) {
         const c = `TEAM-${r4()}-${r4()}`, member = "m" + randomBytes(6).toString("hex");
         try { await db("POST", "teams", "", { code: c, name, owner: member }); } catch (e) { if (e.status === 409) continue; throw e; }
         const token = randomBytes(18).toString("base64url");
-        await db("POST", "team_members", "", { team: c, id: member, token_hash: sha(token), name: nick });
+        try { await db("POST", "team_members", "", { team: c, id: member, token_hash: sha(token), name: nick }); }
+        catch (e) { await db("DELETE", "teams", `?code=eq.${c}`).catch(() => {}); throw e; } // 팀장 없는 팀이 남지 않게
         return res.status(200).json({ code: c, name, member, token, owner: true });
       }
       throw new Error("code collision");
@@ -74,6 +77,7 @@ export default async function handler(req, res) {
       const it = b.item || {};
       const row = { team: code, art: cut(it.art, 60), title: cut(it.title, 200), link: httpUrl(cut(it.link, 500)), src: cut(it.src, 40), cat: cut(it.cat, 30), note: cut(it.note, 200), member: m.id, who: m.name };
       if (!row.art || !row.title) throw fail(400, "bad-item");
+      if ((await db("GET", "team_items", `?team=eq.${code}&select=id&limit=${MAX_ITEMS}`)).length >= MAX_ITEMS) throw fail(409, "items-full");
       try { const [item] = await db("POST", "team_items", "", row); return res.status(200).json({ item }); }
       catch (e) { if (e.status === 409) throw fail(409, "already"); throw e; }
     }
@@ -98,6 +102,7 @@ export default async function handler(req, res) {
     }
     throw fail(400, "bad-action");
   } catch (e) {
-    return res.status(e.status && e.public ? e.status : 502).json({ error: e.public || String(e.message || e) });
+    if (!e.public) console.error("team", e);
+    return res.status(e.status && e.public ? e.status : e instanceof SyntaxError ? 400 : 502).json({ error: e.public || (e instanceof SyntaxError ? "bad-json" : "server") });
   }
 }

@@ -8,7 +8,7 @@
 const HUB = "https://naverapihub.apigw.ntruss.com/search/v1/news";
 const LEGACY = "https://openapi.naver.com/v1/search/news.json";
 
-const PRESS = {
+export const PRESS = {
   "chosun.com": "조선일보", "joongang.co.kr": "중앙일보", "donga.com": "동아일보", "hani.co.kr": "한겨레", "khan.co.kr": "경향신문",
   "hankookilbo.com": "한국일보", "kmib.co.kr": "국민일보", "seoul.co.kr": "서울신문", "segye.com": "세계일보", "munhwa.com": "문화일보",
   "mk.co.kr": "매일경제", "hankyung.com": "한국경제", "sedaily.com": "서울경제", "mt.co.kr": "머니투데이", "edaily.co.kr": "이데일리",
@@ -85,8 +85,9 @@ export function group(items, ex = [], dayMs = 36 * 3600 * 1000, now = Date.now()
 export default async function handler(req, res) {
   const id = process.env.NAVER_CLIENT_ID, secret = process.env.NAVER_CLIENT_SECRET;
   if (!id || !secret) return res.status(500).json({ error: "NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 환경변수가 없어요" });
-  const q = String(req.query.q || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10);
-  const ex = String(req.query.ex || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10);
+  // 검색어는 10개, 한 단어 30자까지 (주소에 아무 말이나 길게 넣어 네이버 호출 한도를 써 버리지 못하게)
+  const words = (v) => [...new Set(String(v || "").split(",").map((s) => s.replace(/\s+/g, " ").trim().slice(0, 30)).filter(Boolean))].slice(0, 10);
+  const q = words(req.query.q), ex = words(req.query.ex);
   if (!q.length) return res.status(400).json({ error: "검색어(q)가 필요해요" });
   try {
     const opt = { id, secret, legacy: process.env.NAVER_API_MODE === "legacy" };

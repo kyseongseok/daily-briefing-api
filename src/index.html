@@ -177,7 +177,7 @@ function scrapView() {
   return header("스크랩함") + `<div class="scroll"><div class="pills" style="flex-wrap:wrap"><button type="button" data-st="mine" aria-pressed="${!t}">내 스크랩 ${mine.length}</button>${S.teams.map((x) => `<button type="button" data-st="${x.id}" aria-pressed="${scrapTab === x.id}">${esc(x.name)} ${x.items.length}</button>`).join("")}<button type="button" data-teamstart style="border-style:dashed;color:#2457E6">+ 팀 만들기 · 참여</button></div>${body}</div>`;
 }
 function dexView() {
-  return header("도감", `<span style="font-size:calc(12px * var(--s));color:var(--faint);padding-right:10px">출석 ${DEX.days}일 · 연속 ${DEX.streak}일</span>`) + `<div class="scroll">
+  return header("도감", `<span style="font-size:calc(12px * var(--s));color:var(--faint);padding-right:10px">출석 ${DEX.days}일 · 연속 ${streakNow()}일</span>`) + `<div class="scroll">
     ${dexNextHTML()}${dexTabsHTML()}${dexGridHTML()}
     <div style="font-size:calc(12px * var(--s));color:var(--faint);line-height:1.6;text-align:center;padding:4px 8px 0">이삭이 40 · 새싹이 40 · 전설 25, 모두 105마리</div></div>`;
 }

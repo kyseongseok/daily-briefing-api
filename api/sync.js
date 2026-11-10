@@ -10,7 +10,7 @@ import { supabase, readBody } from "./_supabase.js";
 
 const ABC = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"; // 헷갈리는 0·O·1·I 뺌
 const CODE_RE = /^DB-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/;
-const MAX = 1024 * 1024; // 기록 크기 상한 (1MB)
+const MAX = 400 * 1024; // 기록 크기 상한 (400KB · 실제 기록은 수십 KB)
 const newCode = () => "DB-" + [0, 1, 2].map(() => Array.from({ length: 4 }, () => ABC[randomInt(ABC.length)]).join("")).join("-");
 
 function db() { const sb = supabase(); return sb && ((method, query, body) => sb(method, "sync_profiles", query, body)); }
@@ -56,6 +56,7 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "GET, POST, PUT");
     return res.status(405).json({ error: "method" });
   } catch (e) {
-    return res.status(502).json({ error: String(e.message || e) });
+    console.error("sync", e);
+    return res.status(e instanceof SyntaxError ? 400 : 502).json({ error: e instanceof SyntaxError ? "bad-json" : "server" });
   }
 }

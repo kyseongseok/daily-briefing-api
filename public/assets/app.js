@@ -94,9 +94,9 @@ function loadPrefs() {
     S.readDay = todayKey();
     // 예전 기본 분야(정책·제도 포함 4개)를 손대지 않고 쓰던 경우엔 새 기본 분야로 바꿈
     const oldDefault = !p.catsVer && Array.isArray(p.cats) && p.cats.map((c) => c.id).join() === "agri,sci,it,pol" && !p.cats.some((c) => c.user);
-    if (Array.isArray(p.myTeams)) S.myTeams = p.myTeams.filter((t) => t && t.code && t.token);
+    if (Array.isArray(p.myTeams)) S.myTeams = p.myTeams.filter((t) => t && /^TEAM-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(t.code) && typeof t.token === "string"); // 동기화로 들어온 값도 모양을 확인 (화면 HTML에 그대로 들어가므로)
     if (typeof p.nick === "string") S.nick = p.nick;
-    if (!oldDefault && Array.isArray(p.cats) && (p.cats.length || p.catsVer)) S.cats = p.cats.map((c) => ({ ...c, count: artsOf(c.id).length }));
+    if (!oldDefault && Array.isArray(p.cats) && (p.cats.length || p.catsVer)) S.cats = p.cats.filter((c) => c && /^[A-Za-z0-9_-]{1,40}$/.test(c.id)).map((c) => ({ ...c, p: Number(c.p) || 0, count: artsOf(c.id).length }));
   } catch (e) {}
 }
 function savePrefs() {
@@ -137,7 +137,6 @@ function rankArts() {
 }
 // 분야를 지우면 그 분야로만 모인 기사는 바로 빼고 순위를 다시 매김
 function pruneArts() {
-  if (!S.live) return;
   S.arts.forEach((a) => { a.cats = (a.cats || [a.cat]).filter((id) => cat(id)); a.cat = a.cats[0]; });
   S.arts = S.arts.filter((a) => a.cats.length); rankArts();
 }
@@ -162,7 +161,7 @@ async function fetchNews() {
   return out;
 }
 function loadCachedNews() {
-  try { const c = JSON.parse(localStorage.getItem(NEWS_KEY) || "null"); if (c && c.day === todayKey()) { lastByCat = c.byCat || {}; applyNews(c.byCat); return true; } } catch (e) {}
+  try { const c = JSON.parse(localStorage.getItem(NEWS_KEY) || "null"); if (c && c.day === todayKey()) { lastByCat = c.byCat || {}; applyNews(c.byCat); NEWS_AT = c.at || 1; return true; } } catch (e) {}
   return false;
 }
 /* 스크랩한 기사는 다음 날에도 보이게 따로 보관 */
@@ -193,7 +192,7 @@ async function refreshNews(app, btn, rerender, onNew) {
 const AUTO_REFRESH_MS = 10 * 60000;
 let autoBusy = false;
 async function autoRefresh(rerender) {
-  if (document.visibilityState !== "visible" || autoBusy || !NEWS_AT || Date.now() - NEWS_AT < AUTO_REFRESH_MS) return;
+  if (document.visibilityState !== "visible" || autoBusy || Date.now() - NEWS_AT < AUTO_REFRESH_MS) return; // 한 번도 못 받았으면(NEWS_AT=0) 바로 다시 시도
   autoBusy = true;
   const app = document.getElementById("app"), before = new Set(S.arts.map((a) => a.id));
   try {
@@ -235,7 +234,7 @@ const safeUrl = (u) => { try { const x = new URL(String(u || "")); return /^http
 const relCount = (a) => a.relCount != null ? a.relCount : (a.rel || []).length;
 function topHTML(withRel = true) {
   const a = S.arts.find((x) => x.top); if (!a) return `<div class="none">오늘 기사를 불러오는 중이에요</div>`;
-  const c = cat(a.cat), rels = a.rel || [], n = relCount(a), more = n - rels.length;
+  const c = cat(a.cat) || { id: "etc", name: "지운 분야", p: 6 }, rels = a.rel || [], n = relCount(a), more = n - rels.length;
   const rel = withRel && rels.length ? `<div class="relbox${S.relOpen && !FX.relAnim ? " open" : ""}"><div class="relin">${rels.map(([m, t]) => `<div><span>${esc(m)}</span>${esc(t)}</div>`).join("")}${more > 0 ? `<div style="color:var(--faint)">외 ${more}건</div>` : ""}</div></div>` : "";
   const info = `${esc(a.src)} · ${a.time}${n ? ` · 관련 ${n}건` : ""}`;
   return `<article class="top" data-card><div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${a.media ? `<span class="chip issue">이슈 · <b class="num">${a.media}</b>개 매체</span>` : ""}${chipCat(c)}</div>
@@ -356,12 +355,14 @@ function gapOk(lastKey) {
   for (d.setDate(d.getDate() + 1); d < t; d.setDate(d.getDate() + 1)) if (!restDay(d)) return false;
   return true;
 }
+/* 화면에 보이는 연속 출석: 평일을 빠진 뒤로는 다음 출석 전이라도 0으로 */
+const streakNow = () => (DEX.last === todayKey() || gapOk(DEX.last) ? DEX.streak : 0);
 /* 기사 하나 읽음 → 하루 3개면 출석. 오늘·분야별·스크랩·팀 스크랩함·통계 어디서 열어도 똑같이 셈 */
 function markRead(app, id) {
   if (S.readDay !== todayKey()) { S.read = new Set(); S.readDay = todayKey(); } // 밤새 켜 둔 화면: 날이 바뀌면 오늘 읽음을 새로 셈
   const was = S.read.has(id), before = S.read.size; S.read.add(id); savePrefs(); if (!was) { DEX.reads += 1; saveDex(); }
   if (!was) { FX.read = id; if (before < 3) FX.att = S.read.size; }
-  if (!was && before < 3 && S.read.size >= 3 && DEX.last !== todayKey()) { // 출석은 하루 한 번 (다른 기기에서 이미 했으면 넘어감)
+  if (!was && S.read.size >= 3 && DEX.last !== todayKey()) { // 출석은 하루 한 번 (다른 기기에서 이미 했으면 넘어감)
     FX.attDone = true;
     const now = new Date(), hatches = [];
     DEX.streak = gapOk(DEX.last) ? DEX.streak + 1 : 1; DEX.days += 1; DEX.last = todayKey();
@@ -382,6 +383,9 @@ function markRead(app, id) {
   return was;
 }
 function bindCommon(app, rerender) {
+  /* 같은 브라우저에 탭이 두 개 열려 있을 때: 다른 탭이 기록을 바꾸면 이 탭도 다시 읽음
+     (안 그러면 이 탭의 예전 기록으로 덮어써서, 동기화가 그걸 '지운 것'으로 보고 모든 기기에서 지움) */
+  window.addEventListener("storage", (e) => { if (e.key === STORE_KEY || e.key === DEX_KEY) { loadPrefs(); loadDex(); rerender(); } });
   /* 링크로 바로 여는 기사(통계·팀 스크랩함): 링크는 그대로 열고 읽음만 셈 */
   app.addEventListener("click", (e) => {
     const a = e.target.closest("a[data-rd]"); if (!a || !app.contains(a)) return;
@@ -397,7 +401,7 @@ function bindCommon(app, rerender) {
     const t = e.target.closest("button, [data-close]"); if (!t || !app.contains(t)) return;
     if (t.dataset.open) {
       const id = t.dataset.open; markRead(app, id);
-      const art = S.arts.find((a) => a.id === id); if (art && safeUrl(art.link)) window.open(safeUrl(art.link), "_blank", "noopener");
+      const art = findArt(id); if (art && safeUrl(art.link)) window.open(safeUrl(art.link), "_blank", "noopener");
       else toast(app, "예시 기사예요 · 기사 연결 후 원문이 열려요");
       rerender(); return;
     }
@@ -409,7 +413,7 @@ function bindCommon(app, rerender) {
       const a = findArt(t.dataset.sid), kind = t.dataset.copy; if (!a) return;
       if (kind === "team") { if (!S.teams.length) { S.sheet = { kind: "teamStart" }; renderSheet(app); toast(app, "먼저 팀을 만들거나 참여해 주세요"); return; } S.draftNote = ""; S.teamPick = S.teamPick && teamOf(S.teamPick) ? S.teamPick : S.teams[0].id; S.sheet = { kind: "teamAdd", arg: a.id }; renderSheet(app); return; }
       const copy = (txt, msg) => { const ok = () => toast(app, msg); try { navigator.clipboard.writeText(txt).then(ok, () => toast(app, "복사하지 못했어요 · 글을 길게 눌러 복사해 주세요")); } catch (err) { toast(app, "복사하지 못했어요 · 글을 길게 눌러 복사해 주세요"); return; } };
-      DEX.shares += 1; saveDex();
+      countShare(a.id);
       // 카카오톡: 휴대폰 공유 창(카카오톡·문자·밴드 등)을 띄움. 공유 창이 없는 PC에서는 복사로 대신
       if (kind === "kakao") {
         if (kakaoShareArticle(a)) { closeSheet(app); return; }
@@ -554,7 +558,7 @@ const DEX = {
     { id: "l-seonbi", no: 8, kind: "legend", img: "seonbi", name: "선비 이삭", cond: "스크랩 100개 모으기", now: 0, goal: 100 },
     { id: "l-doryeong", no: 9, kind: "legend", img: "doryeong", name: "도령", cond: "7일 연속 아침 8시 전에 출석", now: 0, goal: 7 },
     { id: "l-assi", no: 10, kind: "legend", img: "assi", name: "아씨", cond: "팀원과 기사 50번 공유하기", now: 0, goal: 50 },
-    { id: "l-liberty", no: 11, kind: "legend", img: "liberty", name: "자유의 이삭", cond: "하루에 내 모든 분야에서 기사 2개씩 읽기", now: 0, goal: 3 },
+    { id: "l-liberty", no: 11, kind: "legend", img: "liberty", name: "자유의 이삭", cond: "하루에 내 모든 분야(2개 이상)에서 기사 2개씩 읽기", now: 0, goal: 3 },
     { id: "l-army", no: 12, kind: "legend", img: "army", name: "충성!", cond: "출석 100일 (100일 휴가)", now: 0, goal: 100 },
     { id: "l-watermelon", no: 13, kind: "legend", img: "watermelon", name: "수박 한 통", cond: "여름(7~8월)에 가끔 나타나요 · 랜덤" },
     { id: "l-halloween", no: 14, kind: "legend", img: "halloween", name: "잭오랜턴", cond: "할로윈 주간에 가끔 나타나요 · 랜덤" },
@@ -584,7 +588,12 @@ function dexProgress() {
   const lib = DEX.items.find((x) => x.id === "l-liberty"); if (lib) lib.goal = Math.max(2, (S.cats || []).length);
   DEX.items.forEach((x) => { if (x.goal && LEGEND_NOW[x.id]) x.now = Math.min(x.goal, LEGEND_NOW[x.id]()); });
 }
-const DEX_FIELDS = ["days", "streak", "last", "reads", "shares", "goldEgg", "goldQ", "earned", "fri", "early", "earlyLast"];
+const DEX_FIELDS = ["days", "streak", "last", "reads", "shares", "goldEgg", "goldQ", "earned", "fri", "early", "earlyLast", "shareLog"];
+/* 공유 횟수: 같은 기사는 하루에 한 번만 셈 (복사 버튼을 여러 번 눌러 전설 조건을 채우지 못하게) */
+function countShare(id) {
+  const d = todayKey(); if (!DEX.shareLog || DEX.shareLog.d !== d) DEX.shareLog = { d, ids: [] };
+  if (DEX.shareLog.ids.includes(id)) return; DEX.shareLog.ids.push(id); DEX.shares += 1; saveDex();
+}
 /* 자유의 이삭: 오늘 기사를 2개 이상 읽은 내 분야 수 (목표 = 내 분야 전부) */
 function libertyNow() {
   if (S.readDay !== todayKey()) return 0;
@@ -677,7 +686,7 @@ function dexGoldHTML() {
     <div class="dx-bar">${Array.from({ length: g.need }, (_, i) => `<i class="${i < g.done ? "on" : ""}"></i>`).join("")}</div>
     ${q ? `<span class="dx-q">다음 황금알 ${q}개 기다리는 중</span>` : ""}</div></section>`;
 }
-const goldState = (x) => (DEX.goldEgg && DEX.goldEgg.id === x.id ? "hatching" : DEX.earned.includes(x.id) && !owned(x) ? "waiting" : "");
+const goldState = (x) => (DEX.goldEgg && DEX.goldEgg.id === x.id ? (DEX.goldEgg.rand ? "" : "hatching") : DEX.earned.includes(x.id) && !owned(x) && !(DEX.goldQ || []).some((q) => q.id === x.id && q.rand) ? "waiting" : ""); // 랜덤 황금알은 어떤 전설인지 미리 안 보여 줌
 function dexGridHTML() {
   const list = DEX.items.filter((x) => dexTab === "all" || x.kind === dexTab);
   return `<div class="dx-grid">${list.map((x) => {
@@ -721,7 +730,7 @@ async function teamApi(method, body, q) {
   if (!r.ok) throw Object.assign(new Error(j.error || r.status), { status: r.status, code: j.error });
   return j;
 }
-const TEAM_ERR = { "not-configured": "팀 서버 준비 중이에요", "no-team": "없거나 삭제된 팀이에요", "bad-code": "TEAM-XXXX-XXXX 모양의 코드를 넣어 주세요", "need-name": "이름을 넣어 주세요", already: "이미 이 팀에 담긴 기사예요", "not-allowed": "담은 사람이나 팀을 만든 사람만 할 수 있어요", "not-member": "이 팀에서 나간 상태예요" };
+const TEAM_ERR = { "not-configured": "팀 서버 준비 중이에요", "team-full": "팀원이 너무 많아 더 들어갈 수 없어요", "items-full": "팀 스크랩함이 가득 찼어요 · 오래된 기사를 정리해 주세요", "server": "서버에 잠깐 문제가 있어요 · 잠시 뒤 다시 해 주세요", "no-team": "없거나 삭제된 팀이에요", "bad-code": "TEAM-XXXX-XXXX 모양의 코드를 넣어 주세요", "need-name": "이름을 넣어 주세요", already: "이미 이 팀에 담긴 기사예요", "not-allowed": "담은 사람이나 팀을 만든 사람만 할 수 있어요", "not-member": "이 팀에서 나간 상태예요" };
 const teamErr = (e) => TEAM_ERR[e.code] || "잠시 뒤 다시 해 주세요";
 /* 내 팀들 최신 내용 받기 */
 let teamSeq = 0;
@@ -856,7 +865,7 @@ function bindTeams(app, rerender, onTeam) {
       const c = cat(a.cat);
       t.disabled = true;
       try { await teamApi("POST", { action: "add", code: tm.code, token: mt.token, item: { art: a.id, title: a.title, link: a.link || "", src: a.src || "", cat: c ? c.name : "", note: (($("#f-note", app) || {}).value || "").trim() } });
-        DEX.shares += 1; saveDex(); closeSheet(app); await loadTeams(); rerender(); toast(app, `'${tm.name}'에 담았어요`);
+        countShare(a.id); closeSheet(app); await loadTeams(); rerender(); toast(app, `'${tm.name}'에 담았어요`);
       } catch (err) { t.disabled = false; toast(app, teamErr(err)); if (err.status === 403 || err.status === 404) { closeSheet(app); refresh(); } }
       return;
     }
@@ -938,10 +947,13 @@ function catMerge(b, l, s) {
   });
   return out;
 }
-function mergeDex(ld, sd) {
+/* 누적 숫자(읽은 기사·공유·금요일 출석)는 마지막으로 맞춘 기록(base) 이후 이 기기에서 늘어난 만큼을 서버 숫자에 더함
+   (전에는 큰 쪽만 남겨서, 두 기기에서 따로 읽으면 한쪽 기록이 사라졌음) */
+const addCount = (k, ld, sd, bd) => (bd && bd[k] != null ? (sd[k] || 0) + Math.max(0, (ld[k] || 0) - (bd[k] || 0)) : Math.max(sd[k] || 0, ld[k] || 0));
+function mergeDex(ld, sd, bd) {
   const sFirst = (sd.days || 0) > (ld.days || 0) || ((sd.days || 0) === (ld.days || 0) && dayNum(sd.last) >= dayNum(ld.last));
   const hi = sFirst ? sd : ld, lo = sFirst ? ld : sd;
-  return { ...lo, ...hi, reads: Math.max(sd.reads || 0, ld.reads || 0), shares: Math.max(sd.shares || 0, ld.shares || 0),
+  return { ...lo, ...hi, reads: addCount("reads", ld, sd, bd), shares: addCount("shares", ld, sd, bd), fri: addCount("fri", ld, sd, bd),
     got: { ...(lo.got || {}), ...(hi.got || {}) }, earned: uniq(lo.earned || [], hi.earned || []), ...mergeGold(hi, lo, { ...(lo.got || {}), ...(hi.got || {}) }) };
 }
 /* 황금알 합치기: 어느 기기에서든 이미 깨어난 전설의 알은 버리고, 같은 알이면 더 많이 찬 쪽을 씀
@@ -976,7 +988,7 @@ function merge3(base, l, s) {
   if (lp.readDay === sp.readDay) { p.readDay = lp.readDay; p.read = uniq(sp.read || [], lp.read || []); }
   else { const later = dayNum(lp.readDay) >= dayNum(sp.readDay) ? lp : sp; p.readDay = later.readDay; p.read = later.read || []; }
   Object.keys(p).forEach((k) => p[k] === undefined && delete p[k]);
-  return { v: 2, prefs: p, dex: mergeDex(l.dex || {}, s.dex || {}), devices: { ...(s.devices || {}), ...(l.devices || {}) } };
+  return { v: 2, prefs: p, dex: mergeDex(l.dex || {}, s.dex || {}, base && base.dex), devices: { ...(s.devices || {}), ...(l.devices || {}) } };
 }
 function applyData(d) {
   const before = JSON.stringify(S.cats.map((c) => [c.id, c.words, c.ex]));
@@ -1152,8 +1164,9 @@ const normRules = (r) => { const o = {}; ["neg", "dmg", "mit", "pos", "ex"].forE
 try { const c = JSON.parse(localStorage.getItem(RULES_KEY) || "null"); if (c && c.rules) { RULES = normRules(c.rules); RULES_AT = c.at; } } catch (e) {}
 async function fetchRules() {
   try {
-    const r = await fetch("/api/rules"); if (!r.ok) return;
+    const r = await fetch(isAdmin() ? `/api/rules?fresh=${Date.now()}` : "/api/rules"); if (!r.ok) return;
     const j = await r.json();
+    if (RULES_AT && j.updated_at && j.updated_at < RULES_AT) return; // 캐시에서 온 예전 규칙이면 무시
     RULES = j.rules ? normRules(j.rules) : DEFAULT_RULES; RULES_AT = j.updated_at;
     try { localStorage.setItem(RULES_KEY, JSON.stringify({ rules: j.rules, at: j.updated_at })); } catch (e) {}
   } catch (e) {}
@@ -1330,7 +1343,7 @@ function bindStats(app, rerender) {
     if (sel.value === auto) delete R.fix[t]; else R.fix[t] = sel.value;
     const r = await adminFetch("PUT", { rules: R, base: RULES_AT });
     if (r.ok) { RULES = normRules(R); RULES_AT = (await r.json()).updated_at; try { localStorage.setItem(RULES_KEY, JSON.stringify({ rules: R, at: RULES_AT })); } catch (x) {} toast(app, `‘${CLS[sel.value]}’(으)로 고쳤어요 · 모두에게 적용`); renderSheet(app); rerender(); }
-    else toast(app, r.status === 409 ? "다른 관리자가 방금 규칙을 바꿨어요 · 새로고침 후 다시 해 주세요" : r.status === 401 ? "관리자 비밀번호가 바뀌었어요 · 다시 들어가 주세요" : "저장하지 못했어요");
+    else toast(app, r.status === 413 ? "고친 분류가 너무 많아요 · 규칙 화면에서 정리해 주세요" : r.status === 409 ? "다른 관리자가 방금 규칙을 바꿨어요 · 새로고침 후 다시 해 주세요" : r.status === 401 ? "관리자 비밀번호가 바뀌었어요 · 다시 들어가 주세요" : "저장하지 못했어요");
   });
   app.addEventListener("click", (e) => { const h = e.target.closest("[data-sday]"); if (h && app.contains(h)) openDay(h); });
   app.addEventListener("keydown", (e) => { const h = e.target.closest && e.target.closest("[data-sday]"); if (h && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openDay(h); } });
@@ -1355,7 +1368,7 @@ function bindStats(app, rerender) {
     if (t.dataset.rsave !== undefined && S.rdraft) {
       t.disabled = true; const r = await adminFetch("PUT", { rules: S.rdraft, base: RULES_AT }).catch(() => null); t.disabled = false;
       if (r && r.ok) { RULES = normRules(S.rdraft); RULES_AT = (await r.json()).updated_at; try { localStorage.setItem(RULES_KEY, JSON.stringify({ rules: S.rdraft, at: RULES_AT })); } catch (x) {} S.rdraft = null; toast(app, "저장했어요 · 모든 사람의 통계에 적용돼요"); renderSheet(app); rerender(); }
-      else toast(app, r && r.status === 409 ? "다른 관리자가 방금 저장했어요 · 닫았다 다시 열어 주세요" : r && r.status === 401 ? "비밀번호가 맞지 않아요 · 다시 들어가 주세요" : "저장하지 못했어요");
+      else toast(app, r && r.status === 413 ? "단어가 너무 많거나 길어요 (한 묶음 400개 · 한 단어 30자까지)" : r && r.status === 409 ? "다른 관리자가 방금 저장했어요 · 닫았다 다시 열어 주세요" : r && r.status === 401 ? "비밀번호가 맞지 않아요 · 다시 들어가 주세요" : "저장하지 못했어요");
     }
   });
 }
@@ -1369,7 +1382,7 @@ function catDetailHTML(id, wide) {
   let list = artsOf(id).slice();
   const unreadN = list.filter((a) => !S.read.has(a.id)).length;
   if (S.catView.unread) list = list.filter((a) => !S.read.has(a.id));
-  list.sort(S.catView.sort === "new" ? (a, b) => mins(a.time) - mins(b.time) : (a, b) => (b.media || 1) - (a.media || 1) || mins(a.time) - mins(b.time));
+  list.sort(S.catView.sort === "new" ? (a, b) => (b.t || 0) - (a.t || 0) : (a, b) => (b.media || 1) - (a.media || 1) || (b.t || 0) - (a.t || 0));
   const issue = S.catView.unread ? null : artsOf(id).filter((a) => (a.media || 0) >= 3).sort((a, b) => b.media - a.media)[0];
   if (issue) list = list.filter((a) => a.id !== issue.id);
   return `<div class="cd" style="${cvars(c)}">

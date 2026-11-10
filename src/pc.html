@@ -158,10 +158,10 @@ function asideHTML() {
   const n = Math.min(3, S.read.size);
   return `<aside class="aside">
     <section class="card"><h3>오늘의 읽기</h3>
-      <div class="stats"><div><small>오늘 읽음</small><b>${n}<span> / 3</span></b></div><div><small>연속 출석</small><b>${DEX.streak}<span>일</span></b></div><div><small>누적 출석</small><b>${DEX.days}<span>일</span></b></div></div>
+      <div class="stats"><div><small>오늘 읽음</small><b>${n}<span> / 3</span></b></div><div><small>연속 출석</small><b>${streakNow()}<span>일</span></b></div><div><small>누적 출석</small><b>${DEX.days}<span>일</span></b></div></div>
       <div style="display:flex;flex-direction:column;gap:6px"><small style="font-size:12px;color:var(--faint)">오늘 기사 ${S.cats.reduce((x, c) => x + c.count, 0)}건 · 분야별</small>
       <div class="mix" aria-hidden="true">${S.cats.filter((c) => c.count).map((c) => `<i style="flex:${c.count};${cvars(c)}" title="${esc(c.name)} ${c.count}건"></i>`).join("")}</div></div>
-      <button type="button" class="dx-mini" data-tab="dex" style="border:none;background:var(--bg);border-radius:var(--r-s);padding:10px 12px;text-align:left;color:var(--ink)"><img src="${IMG.think}" alt=""><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:13px">다음 친구까지 출석 ${5 - (DEX.days % 5)}일</b><small style="font-size:12px;color:var(--faint)">도감 ${DEX.items.filter(owned).length} / 100 · 도감 보기 ›</small></span></button></section>
+      <button type="button" class="dx-mini" data-tab="dex" style="border:none;background:var(--bg);border-radius:var(--r-s);padding:10px 12px;text-align:left;color:var(--ink)"><img src="${IMG.think}" alt=""><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:13px">다음 친구까지 출석 ${5 - (DEX.days % 5)}일</b><small style="font-size:12px;color:var(--faint)">도감 ${DEX.items.filter(owned).length} / ${DEX.totals.isak + DEX.totals.sprout + DEX.totals.legend} · 도감 보기 ›</small></span></button></section>
     <section class="card"><h3>팀 스크랩함</h3>${S.teams.length ? S.teams.map((x) => `<button type="button" class="dx-mini" data-pst="${x.id}" data-tab="scrap" style="border:none;background:var(--bg);border-radius:var(--r-s);padding:10px 12px;text-align:left;color:var(--ink);display:flex;justify-content:space-between"><b>${esc(x.name)}</b><span style="color:var(--faint);font-size:12px">${x.items.length}건</span></button>`).join("") : `<div style="font-size:13px;color:var(--sub);line-height:1.6">팀원과 기사를 함께 모으고, 이번 주 모음을 메신저로 보낼 수 있어요.</div><button type="button" class="act" style="justify-content:center" data-teamstart>팀 만들기 · 참여</button>`}</section>
     <section class="card" style="flex-direction:row;align-items:center"><div class="mini" aria-hidden="true"><i style="background:#F3F6FB;${S.mode === "basic" ? "border:2px solid #2457E6" : ""}"></i><i style="background:#F4F1EA;${S.mode === "jogan" ? "border:2px solid #2457E6" : ""}"></i><i style="background:#FBF8F1;${S.mode === "digest" ? "border:2px solid #2457E6" : ""}"></i></div>
       <div style="flex:1"><div style="font-size:13px;font-weight:700">디자인 바꾸기</div><div style="font-size:12px;color:var(--faint)">기본 · 조간 · 다이제스트</div></div><button type="button" class="act" data-drawer>열기</button></section>
@@ -205,7 +205,7 @@ function statsPC() {
 }
 function dexPC() {
   return `<div class="wrap main"><section class="col">
-    <div class="h2row"><h2>도감</h2><span style="margin-left:auto;font-size:13px;color:var(--faint)">출석 ${DEX.days}일 · 연속 ${DEX.streak}일</span></div>
+    <div class="h2row"><h2>도감</h2><span style="margin-left:auto;font-size:13px;color:var(--faint)">출석 ${DEX.days}일 · 연속 ${streakNow()}일</span></div>
     ${dexNextHTML()}${dexTabsHTML()}${dexGridHTML()}</section>
     <aside class="aside"><section class="card"><h3>친구를 만나는 방법</h3>
       <div style="display:flex;flex-direction:column;gap:10px;font-size:14px;line-height:1.55;color:var(--sub)">
@@ -248,6 +248,7 @@ app.addEventListener("click", (e) => {
   if (b.dataset.quick !== undefined) { quick = !quick; render(); return; }
   if (b.dataset.drawer !== undefined) { drawer = true; quick = false; render(); return; }
   if ((b.dataset.sync !== undefined || b.dataset.synchelp !== undefined) && drawer) { drawer = false; render(); S.sheet = { kind: b.dataset.sync !== undefined ? "sync" : "syncHelp" }; renderSheet(app); return; }
+  if (b.dataset.rules !== undefined && drawer) { drawer = false; render(); S.rdraft = null; S.sheet = { kind: "rules" }; renderSheet(app); return; } // 규칙 화면이 설정 창에 가려지지 않게
   if (b.dataset.edit && drawer) { drawer = false; render(); openSheet(app, "edit", b.dataset.edit); return; }
   if (b.dataset.closedrawer !== undefined) { drawer = false; render(); return; }
   if (b.dataset.tour !== undefined) { drawer = false; render(); tour(); return; }

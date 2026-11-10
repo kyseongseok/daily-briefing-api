@@ -11,6 +11,8 @@ const dayKey = (t) => new Date(t + 9 * 3600 * 1000).toISOString().slice(0, 10); 
 export default async function handler(req, res) {
   const id = process.env.NAVER_CLIENT_ID, secret = process.env.NAVER_CLIENT_SECRET;
   if (!id || !secret) return res.status(500).json({ error: "NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 환경변수가 없어요" });
+  // 주소 뒤에 아무 값이나 붙이면 캐시를 건너뛰고 네이버를 10번씩 부르게 되므로, 붙은 값은 떼고 같은 주소로 보냄
+  if (Object.keys(req.query || {}).length) { res.setHeader("Location", "/api/stats"); res.setHeader("Cache-Control", "public, s-maxage=86400"); return res.status(308).end(); }
   const opt = { id, secret, legacy: process.env.NAVER_API_MODE === "legacy" };
   try {
     const all = [];

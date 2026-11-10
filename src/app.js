@@ -580,7 +580,7 @@ function giveGold(id, rand) {
 function checkLegends() {
   DEX.items.forEach((x) => {
     if (x.kind !== "legend" || !x.goal || owned(x) || DEX.earned.includes(x.id)) return;
-    if (LEGEND_NOW[x.id] && LEGEND_NOW[x.id]() >= x.goal && giveGold(x.id)) FX.goldNew = (FX.goldNew || 0) + 1;
+    if (LEGEND_NOW[x.id] && LEGEND_NOW[x.id]() >= x.goal && giveGold(x.id)) (FX.goldNew = FX.goldNew || []).push(x.id);
   });
 }
 /* 랜덤 전설 후보: 지금 계절에 나오는 전설, 가끔 비눗방울(가장 희귀) */
@@ -1236,14 +1236,21 @@ function applyFX(app) {
   if (FX.relAnim) { const rb = app.querySelector(".relbox"); if (rb) requestAnimationFrame(() => requestAnimationFrame(() => rb.classList.add("open"))); }
   if (FX.enter) { const sc = app.querySelector(FX.enter); if (sc) sc.classList.add("enter"); }
   const hatch = FX.hatch, goldNew = FX.goldNew;
-  ["read", "att", "attDone", "star", "relAnim", "enter", "hatch"].forEach((k) => delete FX[k]);
-  if (hatch) { HXQ = [...hatch]; setTimeout(() => hatchNext(app), 900); }
-  if (goldNew && !hatch) { delete FX.goldNew; } if (goldNew && !hatch) toast(app, `전설 조건 달성! 황금알을 받았어요 · 출석 ${GOLD_NEED}일이면 깨어나요`);
+  ["read", "att", "attDone", "star", "relAnim", "enter", "hatch", "goldNew"].forEach((k) => delete FX[k]);
+  /* 새 친구·랜덤 전설·조건 전설 황금알을 모두 한 줄로 세워 차례로 한 장씩 보여 줌.
+     이미 화면이 떠 있거나 대기 중이면 뒤에 붙이기만 함 (덮어쓰거나 토스트로 흘려보내지 않음) */
+  const add = [...(hatch || []), ...(goldNew || []).map((id) => "!gold:" + id)];
+  if (add.length) {
+    const busy = HXQ.length || HXT || $$(".hx", app).length;
+    HXQ.push(...add);
+    if (!busy) HXT = setTimeout(() => { HXT = 0; hatchNext(app); }, 900);
+  }
 }
-let HXQ = [];
-function hatchNext(app) { const id = HXQ.shift(); if (id) showHatch(app, id); else if (FX.goldNew) { delete FX.goldNew; toast(app, `전설 조건 달성! 황금알을 받았어요 · 출석 ${GOLD_NEED}일이면 깨어나요`); } }
+let HXQ = [], HXT = 0;
+function hatchNext(app) { const id = HXQ.shift(); if (id) showHatch(app, id); }
 function showHatch(app, id) {
   if (id === "!found") return showFound(app);
+  if (id.startsWith("!gold:")) return showGoldGot(app, id.slice(6));
   const x = DEX.items.find((y) => y.id === id);
   $$(".hx", app).forEach((n) => n.remove());
   const gold = x.kind === "legend";
@@ -1265,6 +1272,21 @@ function showFound(app) {
     <div class="hx-stage"><div class="hx-egg"><img class="w" src="${IMG.egg}" alt=""><img class="g" src="${IMG.gEgg}" alt=""><i class="sp s1">✦</i><i class="sp s2">✦</i><i class="sp s3">✦</i></div></div>
     <div class="hx-txt"><b>앗, 이 알… 뭔가 달라요!</b><span>반짝이는 알을 발견했어요<br>${DEX.goldQ.length ? "지금 품는 황금알이 깨어나면 이어서 품어요" : `출석 ${GOLD_NEED}일 동안 품으면 깨어나요`}</span></div>
     <div class="hx-btns"><button type="button" class="cta" data-hxgo>품기</button></div></div>`;
+  app.append(el);
+  setTimeout(() => el.classList.add("shake"), 250);
+  setTimeout(() => el.classList.add("open"), 1500);
+}
+
+/* 조건 전설: 기록을 채워 황금알을 받은 장면 (출석 친구 화면과 따로 한 장) */
+function showGoldGot(app, id) {
+  const x = DEX.items.find((y) => y.id === id); if (!x) return hatchNext(app);
+  $$(".hx", app).forEach((n) => n.remove());
+  const now = DEX.goldEgg && DEX.goldEgg.id === id;
+  const el = document.createElement("div"); el.className = "hx gold found"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "황금알을 받았어요");
+  el.innerHTML = `<div class="hx-card"><div class="hx-top">전설 조건 달성!</div>
+    <div class="hx-stage"><div class="hx-egg"><img class="w" src="${IMG.egg}" alt=""><img class="g" src="${IMG.gEgg}" alt=""><i class="sp s1">✦</i><i class="sp s2">✦</i><i class="sp s3">✦</i></div></div>
+    <div class="hx-txt"><b>황금알을 받았어요!</b><span>‘${esc(x.cond || "")}’ 달성<br>${now ? `출석 ${GOLD_NEED}일 동안 품으면 깨어나요` : "지금 품는 황금알이 깨어나면 이어서 품어요"}</span></div>
+    <div class="hx-btns"><button type="button" class="cta" data-hxgo>도감에서 보기</button><button type="button" class="hx-x" data-hxclose>닫기</button></div></div>`;
   app.append(el);
   setTimeout(() => el.classList.add("shake"), 250);
   setTimeout(() => el.classList.add("open"), 1500);

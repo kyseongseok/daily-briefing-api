@@ -319,7 +319,7 @@ function renderSheet(app) {
   sh.innerHTML = k === "share" ? shareSheet(S.sheet.arg) : k === "dex" ? dexSheet(S.sheet.arg) : k.startsWith("team") || k === "invite" ? teamSheet(k, S.sheet.arg) : k.startsWith("sync") ? syncSheet(k) : k === "statDay" ? statDaySheet(S.sheet.arg) : addSheet();
   const keep = S.sheet.scroll || 0; requestAnimationFrame(() => { sh.scrollTop = keep; });
   app.append(dim, sh);
-  if (k === "dex") dexCardMount(sh);
+  if (k === "dex" && sh.querySelector(".dxc")) { sh.classList.add("dxc-sheet"); dim.classList.add("dxc-dim"); sh.setAttribute("aria-label", "도감 카드"); dexCardMount(sh); }
 }
 function closeSheet(app) { S.sheet = null; S.draft = null; renderSheet(app); }
 function toast(app, msg) {
@@ -695,8 +695,9 @@ function dexTabsHTML() {
 }
 function dexSheet(id) {
   const x = DEX.items.find((y) => y.id === id), o = owned(x), lg = x.kind === "legend";
+  if (o && x.img) return dexCardHTML(x); // 만난 친구: 시트 없이 수집 카드만 띄움
   return `<div class="grab"></div><div class="sh-head"><h2>${o ? esc(x.name) : lg ? "아직 못 만난 전설" : "아직 못 만난 친구"}</h2><button type="button" class="x" data-close>닫기</button></div>
-    ${o && x.img ? dexCardHTML(x) : `<div class="dx-big${x.kind === "sprout" ? " spr" : ""}${lg ? " lg" : ""}">${dexArt(x, true)}</div>`}
+    ${o && x.img ? "" : `<div class="dx-big${x.kind === "sprout" ? " spr" : ""}${lg ? " lg" : ""}">${dexArt(x, true)}</div>`}
     ${o ? (x.img ? "" : `<p class="dx-line">${esc(x.line || (lg ? `‘${x.cond}’ 기록으로 깨어난 전설이에요.` : "출석으로 만난 친구예요."))}</p><div class="dx-meta">${dexNo(x)} · ${x.got}에 만났어요</div>`)
       : lg && goldState(x) ? `<p class="dx-line">${goldState(x) === "hatching" ? `황금알을 품고 있어요. 출석 ${DEX.goldEgg.need - DEX.goldEgg.done}일 뒤 깨어나요.` : "황금알을 받았어요. 지금 품는 알이 깨어나면 이어서 품어요."}</p>`
       : lg ? `<p class="dx-line">${x.hidden ? "어떻게 얻는지는 비밀이에요. 꾸준히 읽다 보면 만날 수 있어요." : `조건: ${esc(x.cond)}. 채우면 누구인지 공개돼요.`}</p>${x.goal ? `<div class="dx-p big"><i style="width:${Math.round(x.now / x.goal * 100)}%"></i></div><div class="dx-meta">지금 ${x.now} / ${x.goal}</div>` : ""}`

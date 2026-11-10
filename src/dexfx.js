@@ -521,21 +521,17 @@ function dexCardHTML(x) {
   const how = lg ? x.cond : "출석 5일마다 랜덤으로 만나요";
   const line = x.line || (lg ? `‘${x.cond}’ 기록으로 깨어난 전설이에요.` : "출석으로 만난 친구예요.");
   const total = DEX.totals[x.kind];
-  return `<div class="dxc-wrap"><div class="dxc" data-kind="${x.kind}" data-dxc="${x.id}" tabindex="0" role="button" aria-label="${esc(x.name)} 카드, 누르면 뒤집혀요">
-    <div class="dxc-tilt"><div class="dxc-flip">
-      <div class="dxc-face front"><div class="dxc-frame"><div class="dxc-inner">
-        <div class="dxc-top"><span>No.${pad(x.no)}</span><span class="dxc-mid"><span class="dxc-emb">${DXC_EMB}</span></span><span class="dxc-chip">${k[0]}<i>${k[1]}</i></span></div>
-        <div class="dxc-win"><div class="dxc-stage"></div></div>
-        <div class="dxc-plate"><span class="dxc-pn">${esc(x.name)}</span><span class="dxc-pk">${k[2]}</span></div>
-        <div class="dxc-info"><div><small>만난 날</small><b>${esc(x.got || "")}</b></div><div><small>얻는 법</small><b>${esc(how)}</b></div></div>
-        <div class="dxc-foot"><span>DAILY BRIEFING</span><span>${pad(x.no)} / ${pad(total)}</span></div>
-      </div></div><div class="dxc-glare"></div></div>
-      <div class="dxc-face back"><div class="dxc-frame"><div class="dxc-inner">
-        <div class="dxc-bigemb">${DXC_EMB}</div><div class="dxc-bno">No.${pad(x.no)} · ${k[0]}</div><div class="dxc-bnm">${esc(x.name)}</div>
-        <div class="dxc-q">“${esc(line)}”</div><div class="dxc-bmeta">${esc(x.got || "")}에 만났어요<br>${esc(how)}</div><div class="dxc-turn">탭하면 앞면으로</div>
-      </div></div><div class="dxc-glare"></div></div>
-    </div></div></div>
-    <p class="dxc-hint">카드를 끌어서 기울여 보세요 · 탭하면 뒷면</p>
+  return `<button type="button" class="dxc-x" data-close>닫기</button>
+  <div class="dxc-wrap"><div class="dxc" data-kind="${x.kind}" data-dxc="${x.id}" tabindex="0" role="img" aria-label="${esc(x.name)} 카드">
+    <div class="dxc-tilt"><div class="dxc-face"><div class="dxc-frame"><div class="dxc-inner">
+      <div class="dxc-top"><span>No.${pad(x.no)}</span><span class="dxc-mid"><span class="dxc-emb">${DXC_EMB}</span></span><span class="dxc-chip">${k[0]}<i>${k[1]}</i></span></div>
+      <div class="dxc-win"><div class="dxc-stage"></div></div>
+      <div class="dxc-plate"><span class="dxc-pn">${esc(x.name)}</span><span class="dxc-pk">${k[2]}</span></div>
+      <div class="dxc-info"><div><small>만난 날</small><b>${esc(x.got || "")}</b></div><div><small>얻는 법</small><b>${esc(how)}</b></div></div>
+      <div class="dxc-foot"><span>DAILY BRIEFING</span><span>${pad(x.no)} / ${pad(total)}</span></div>
+    </div></div><div class="dxc-glare"></div></div></div></div>
+    <p class="dxc-line">${esc(line)}</p>
+    <p class="dxc-hint">카드를 끌어서 기울여 보세요</p>
     ${"DeviceOrientationEvent" in window && matchMedia("(pointer: coarse)").matches ? '<button type="button" class="dxc-gy" aria-pressed="false">폰 기울여서 보기</button>' : ""}
     <p class="dxc-msg" hidden></p></div>`;
 }
@@ -548,9 +544,9 @@ function dexCardStop() {
 function dexCardOri(e) {
   const card = DXC.card; if (!card || e.beta == null || e.gamma == null) return;
   DXC.got = true; if (!DXC.base) DXC.base = { b: e.beta, g: e.gamma };
-  const cl = (v, a, b) => Math.max(a, Math.min(b, v)), db = cl(e.beta - DXC.base.b, -25, 25), dg = cl(e.gamma - DXC.base.g, -25, 25), f = card.classList.contains("flipped") ? -1 : 1;
+  const cl = (v, a, b) => Math.max(a, Math.min(b, v)), db = cl(e.beta - DXC.base.b, -25, 25), dg = cl(e.gamma - DXC.base.g, -25, 25);
   card.querySelector(".dxc-tilt").style.transition = "transform .12s linear";
-  card._set(cl(-db * 0.6, -14, 14), cl(dg * 0.7, -16, 16) * f, 50 + dg * 1.8, 50 + db * 1.8, 0.7);
+  card._set(cl(-db * 0.6, -14, 14), cl(dg * 0.7, -16, 16), 50 + dg * 1.8, 50 + db * 1.8, 0.7);
 }
 function dexCardMount(sh) {
   const card = sh.querySelector(".dxc"); if (!card) return;
@@ -565,17 +561,19 @@ function dexCardMount(sh) {
   const idle = (t) => { if (!DXC.card) return; if (!active && !DXC.gyro && !reduce) { const a = (t - t0) / 1000; set(Math.sin(a * 0.9) * 4, Math.sin(a * 0.6) * 7, 50 + Math.sin(a * 0.6) * 35, 40 + Math.cos(a * 0.9) * 25, 0.3); } DXC.raf = requestAnimationFrame(idle); };
   DXC.raf = requestAnimationFrame(idle);
   const cl = (v, a, b) => Math.max(a, Math.min(b, v));
-  const move = (e) => { const r = card.getBoundingClientRect(), px = cl((e.clientX - r.left) / r.width, 0, 1), py = cl((e.clientY - r.top) / r.height, 0, 1), f = card.classList.contains("flipped") ? -1 : 1; set((0.5 - py) * 22, (px - 0.5) * 26 * f, px * 100, py * 100, 0.75); };
+  const poke = () => { card.classList.remove("poke"); void card.offsetWidth; card.classList.add("poke"); };
+  card.addEventListener("animationend", (e) => { if (e.animationName === "dxcPoke") card.classList.remove("poke"); });
+  const move = (e) => { const r = card.getBoundingClientRect(), px = cl((e.clientX - r.left) / r.width, 0, 1), py = cl((e.clientY - r.top) / r.height, 0, 1) ; set((0.5 - py) * 22, (px - 0.5) * 26, px * 100, py * 100, 0.75); };
   card.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") { active = true; tilt.style.transition = "transform .08s linear"; } });
   card.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" || down) { active = true; move(e); } });
   card.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; active = true; tilt.style.transition = "transform .08s linear"; try { card.setPointerCapture(e.pointerId); } catch (_) {} move(e); });
   const end = (e) => {
-    if (down) { if (Math.hypot(e.clientX - down.x, e.clientY - down.y) < 8 && performance.now() - down.t < 450) card.classList.toggle("flipped"); down = null; }
+    if (down) { if (Math.hypot(e.clientX - down.x, e.clientY - down.y) < 8 && performance.now() - down.t < 450) poke(); down = null; }
     if (e.pointerType !== "mouse" || e.type === "pointerleave") { active = false; tilt.style.transition = "transform .6s cubic-bezier(.2,1,.3,1)"; t0 = performance.now(); }
   };
   ["pointerup", "pointercancel", "pointerleave"].forEach((ev) => card.addEventListener(ev, end));
   card.addEventListener("click", (e) => e.stopPropagation());
-  card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); card.classList.toggle("flipped"); } });
+  card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); poke(); } });
   const gy = sh.querySelector(".dxc-gy"), msg = sh.querySelector(".dxc-msg");
   if (gy) gy.addEventListener("click", async (e) => {
     e.stopPropagation(); msg.hidden = true;

@@ -198,6 +198,7 @@ function settingsView() {
     <section class="box" style="flex-direction:row;align-items:center"><div style="flex:1"><h3>PC·휴대폰 동기화 <button type="button" class="qhelp" data-synchelp aria-label="동기화 사용 방법">?</button></h3><div style="font-size:12px;color:var(--faint);margin-top:4px">${esc(syncLine())}</div></div><button type="button" class="lnk" data-sync>관리 ›</button></section>
     ${isStandalone() ? "" : `<button type="button" class="addbtn" data-a2hs>홈 화면에 추가하기</button>`}
     <button type="button" class="addbtn" data-tour>사용 안내 다시 보기</button>
+    <button type="button" class="addbtn" data-rules>통계 단어 규칙 (부정·긍정 나누기)</button>
     ${CREDIT}</div>`;
 }
 function render() {

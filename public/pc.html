@@ -225,6 +225,7 @@ function drawerHTML() {
     <section class="card" style="gap:2px"><h3 style="padding-bottom:6px">내 분야</h3>${S.cats.map((c) => `<button type="button" class="mycat" data-edit="${c.id}" style="${cvars(c)}"><i></i>${esc(c.name)}<span>검색어 ${(c.words || []).length}개</span><em>수정 ›</em></button>`).join("")}</section>
     <section class="card"><h3>PC·휴대폰 동기화 <button type="button" class="qhelp" data-synchelp aria-label="동기화 사용 방법">?</button></h3><small style="font-size:13px;color:var(--sub)">${esc(syncLine())}</small><button type="button" class="act" style="justify-content:center" data-sync>코드 보기 · 기기 연결</button></section>
     <button type="button" class="act" style="justify-content:center" data-tour>사용 안내 다시 보기</button>
+    <button type="button" class="act" style="justify-content:center" data-rules>통계 단어 규칙 (부정·긍정 나누기)</button>
     ${CREDIT}
   </aside>`;
 }

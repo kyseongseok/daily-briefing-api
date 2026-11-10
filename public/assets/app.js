@@ -316,7 +316,7 @@ function renderSheet(app) {
   const dim = document.createElement("div"); dim.className = "dim"; dim.dataset.close = "";
   const sh = document.createElement("section"); sh.className = "sheet"; sh.setAttribute("role", "dialog"); sh.setAttribute("aria-modal", "true");
   const k = S.sheet.kind;
-  sh.innerHTML = k === "share" ? shareSheet(S.sheet.arg) : k === "dex" ? dexSheet(S.sheet.arg) : k.startsWith("team") || k === "invite" ? teamSheet(k, S.sheet.arg) : k.startsWith("sync") ? syncSheet(k) : k === "statDay" ? statDaySheet(S.sheet.arg) : addSheet();
+  sh.innerHTML = k === "share" ? shareSheet(S.sheet.arg) : k === "dex" ? dexSheet(S.sheet.arg) : k.startsWith("team") || k === "invite" ? teamSheet(k, S.sheet.arg) : k.startsWith("sync") ? syncSheet(k) : k === "statDay" ? statDaySheet(S.sheet.arg) : k === "statNeg" ? statNegSheet() : k === "rules" ? rulesSheet() : addSheet();
   const keep = S.sheet.scroll || 0; requestAnimationFrame(() => { sh.scrollTop = keep; });
   app.append(dim, sh);
   if (k === "dex" && sh.querySelector(".dxc")) { sh.classList.add("dxc-sheet"); dim.classList.add("dxc-dim"); sh.setAttribute("aria-label", "도감 카드"); dexCardMount(sh); }
@@ -1126,6 +1126,55 @@ const CREDIT = `<div class="credit">연구정책국 연구정책과<span>Kyeong-
    - 내 분야 검색어와 상관없이 모두 같은 기준
    - 네이버에서 거슬러 받을 수 있는 날(최대 1,000건)은 바로 채우고, 그 전 기간은 매일 기록이 쌓이면서 채워짐(5단계) */
 const STAT_WORD = "농촌진흥청", STATS_KEY = "daily-briefing-stats-v2";
+/* ── 통계 긍정·부정 분류 (모든 사람 공통 단어 규칙) ──
+   순서: 예외 표현 지우기 → 부정 단어 있으면 '부정' → 피해 단어가 있고 대응·긍정 단어가 없으면 '현장피해'
+         → 긍정 단어 있으면 '긍정' → 나머지 '중립'. 관리자가 기사별로 직접 고친 분류(fix)가 가장 먼저.
+   기본값은 2026년 11월 기사 약 2,000건으로 다듬은 것. 매달 1일 함께 점검하며 고쳐 나감 */
+const DEFAULT_RULES = {
+  neg: ["의혹", "논란", "비판", "질타", "지적", "도마", "뭇매", "철퇴", "과징금", "해킹", "개인정보", "유출", "부실", "부적정", "쌈짓돈", "혈세", "낭비", "낮잠", "둔갑", "허위", "표절", "특혜", "갑질", "비리", "횡령", "징계", "적발", "위반", "무산", "어겼", "소송", "행정심판", "반발", "항의", "불만", "불신", "책임론", "삭감", "축소", "위축", "미흡", "미비", "실효성", "무용지물", "방치", "늑장", "뒷북", "맹탕", "엉터리", "허점", "구멍", "외면", "혼선", "잡음", "그쳐", "불과", "턱없이", "사각지대"],
+  dmg: ["피해", "확진", "감염", "바이러스", "병해충", "해충", "폭염", "냉해", "동해", "우박", "가뭄", "습해", "호우", "폐사", "비상", "열과", "일소", "고사", "사고", "중독", "위기", "재해", "확산"],
+  mit: ["예방", "줄인", "줄여", "줄이", "감소", "막는", "막아", "막고", "차단", "대응", "대비", "방제", "극복", "최소화", "저감", "방지", "복구", "지원", "요령", "기술", "관리", "대책", "주의", "당부", "점검", "해법", "대안", "뚝", "훈련", "캠페인", "교육", "진단", "안전", "수칙", "신고", "감지", "선별", "토론회", "주의보", "예찰", "연구"],
+  pos: ["개발", "성공", "선정", "수상", "최우수", "우수상", "장관상", "대통령상", "1위", "보급", "절감", "향상", "입증", "효과", "호평", "인기", "협약", "MOU", "맞손", "손잡", "출시", "첫선", "특허", "기술이전", "수출", "돌파", "성과", "혁신", "높인다", "높여", "늘어", "감사패", "공개", "확대"],
+  ex: ["기술 확산", "현장 확산", "보급 확산", "확산 보급", "확산 속도", "확산 박차", "급부상", "지적재산", "감사패", "청렴", "국정감사 답변", "질의 답변", "유출 여부", "사각지대 최소화"],
+  fix: {},
+};
+const RULE_GROUPS = [
+  ["neg", "부정", "제목에 하나라도 있으면 ‘부정’. 가장 먼저 확인해요."],
+  ["dmg", "현장피해", "피해 단어가 있어도 아래 ‘대응 단어’나 긍정 단어가 같이 있으면 중립으로 봐요."],
+  ["mit", "대응 단어", "피해 기사를 농촌진흥청의 대응 기사(중립)로 바꿔요."],
+  ["pos", "긍정", "부정·현장피해가 아니고 이 단어가 있으면 ‘긍정’."],
+  ["ex", "예외 표현", "이 말이 들어가면 그 부분은 지우고 판단해요. 예: ‘기술 확산’은 피해가 아님."],
+];
+const CLS = { neg: "부정", dmg: "현장피해", pos: "긍정", neu: "중립" };
+const RULES_KEY = "daily-briefing-rules";
+let RULES = DEFAULT_RULES, RULES_AT = null;
+const normRules = (r) => { const o = {}; ["neg", "dmg", "mit", "pos", "ex"].forEach((g) => { o[g] = Array.isArray(r && r[g]) ? r[g] : DEFAULT_RULES[g]; }); o.fix = (r && r.fix) || {}; return o; };
+try { const c = JSON.parse(localStorage.getItem(RULES_KEY) || "null"); if (c && c.rules) { RULES = normRules(c.rules); RULES_AT = c.at; } } catch (e) {}
+async function fetchRules() {
+  try {
+    const r = await fetch("/api/rules"); if (!r.ok) return;
+    const j = await r.json();
+    RULES = j.rules ? normRules(j.rules) : DEFAULT_RULES; RULES_AT = j.updated_at;
+    try { localStorage.setItem(RULES_KEY, JSON.stringify({ rules: j.rules, at: j.updated_at })); } catch (e) {}
+  } catch (e) {}
+}
+function classify(title, R = RULES) {
+  const t0 = String(title || "");
+  if (R.fix && R.fix[t0]) return { c: R.fix[t0], w: "", fixed: true };
+  let t = t0; (R.ex || []).forEach((e) => { if (e) t = t.split(e).join(" "); });
+  const hit = (g) => (R[g] || []).find((w) => w && t.includes(w));
+  const n = hit("neg"); if (n) return { c: "neg", w: n };
+  const d = hit("dmg"), p = hit("pos");
+  if (d && !hit("mit") && !p) return { c: "dmg", w: d };
+  if (p) return { c: "pos", w: p };
+  return { c: "neu", w: "" };
+}
+/* 제목에서 걸린 단어 표시 */
+function markTitle(t, k) { const h = esc(t); if (!k || !k.w) return h; const w = esc(k.w), i = h.indexOf(w); return i < 0 ? h : h.slice(0, i) + `<mark class="cl-${k.c}">${w}</mark>` + h.slice(i + w.length); }
+const isAdmin = () => { try { return !!sessionStorage.getItem("db-admin"); } catch (e) { return false; } };
+/* 하루 기사 목록 나누기 */
+function dayCls(v, R = RULES) { const o = { neg: 0, dmg: 0, pos: 0, neu: 0 }; ((v && v.list) || []).forEach((a) => { o[classify(a[0], R).c]++; }); return o; }
+
 S.statPeriod = 7; S.rda = null;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const md = (d) => `${d.getMonth() + 1}월 ${d.getDate()}일`;
@@ -1134,6 +1183,10 @@ const dKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "
 const fromKey = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
 const rdId = (link) => S.arts.find((a) => a.link === link)?.id || "u:" + String(link).slice(0, 200);
 async function fetchStats(force) {
+  const rp = fetchRules();
+  await fetchStatsOnly(force); await rp;
+}
+async function fetchStatsOnly(force) {
   if (!force) try { const c = JSON.parse(localStorage.getItem(STATS_KEY) || "null"); if (c && c.today === dKey(new Date()) && Date.now() - c.at < 30 * 60000) { S.rda = c; return; } } catch (e) {}
   try {
     let r = await fetch("/api/stats").catch(() => null);
@@ -1146,9 +1199,9 @@ async function fetchStats(force) {
 function statsData() {
   const P = S.statPeriod, weekly = P === 90, R = S.rda && S.rda.days ? S.rda : null;
   const days = [];
-  for (let i = P - 1; i >= 0; i--) { const date = addDays(TODAY, -i), k = dKey(date), v = R && R.days[k]; days.push({ i, date, ok: !!v, today: i === 0, n: v ? v.n : 0, m: v ? v.m : {} }); }
+  for (let i = P - 1; i >= 0; i--) { const date = addDays(TODAY, -i), k = dKey(date), v = R && R.days[k]; days.push({ i, k, date, ok: !!v, today: i === 0, n: v ? v.n : 0, m: v ? v.m : {}, cl: dayCls(v) }); }
   let slots = days;
-  if (weekly) { slots = []; for (let w = 0; w < 13; w++) { const part = days.slice(w * 7, w * 7 + 7), ok = part.filter((x) => x.ok); slots.push({ date: part[0].date, ok: ok.length > 0, partial: ok.length > 0 && ok.length < part.length, n: ok.reduce((s, x) => s + x.n, 0) }); } }
+  if (weekly) { slots = []; for (let w = 0; w < 13; w++) { const part = days.slice(w * 7, w * 7 + 7), ok = part.filter((x) => x.ok); slots.push({ date: part[0].date, ok: ok.length > 0, partial: ok.length > 0 && ok.length < part.length, n: ok.reduce((s, x) => s + x.n, 0), cl: { neg: ok.reduce((s, x) => s + x.cl.neg, 0), dmg: ok.reduce((s, x) => s + x.cl.dmg, 0) } }); } }
   const okDays = days.filter((x) => x.ok), have = okDays.length;
   const total = okDays.reduce((s, x) => s + x.n, 0);
   const done = okDays.filter((x) => !x.today); // 하루 평균은 다 끝난 날만
@@ -1156,10 +1209,12 @@ function statsData() {
   let prev = null;
   if (R) { const pd = []; for (let i = P; i < P * 2; i++) pd.push(R.days[dKey(addDays(TODAY, -i))]); if (pd.every(Boolean)) prev = pd.reduce((s, v) => s + v.n, 0); }
   const best = done.slice().sort((a, b) => b.n - a.n)[0];
-  return { P, have, weekly, slots, total, avg: done.length ? done.reduce((s, x) => s + x.n, 0) / done.length : 0, prev, media: Object.entries(mc).sort((a, b) => b[1] - a[1]).slice(0, 5), best };
+  const cl = { neg: 0, dmg: 0, pos: 0, neu: 0 }; okDays.forEach((x) => Object.keys(cl).forEach((c) => { cl[c] += x.cl[c]; }));
+  const negs = []; okDays.slice().reverse().forEach((x) => (R.days[x.k].list || []).forEach((a) => { const k = classify(a[0]); if (k.c === "neg") negs.push({ a, k, date: x.date }); }));
+  return { P, have, weekly, slots, total, cl, negs, avg: done.length ? done.reduce((s, x) => s + x.n, 0) / done.length : 0, prev, media: Object.entries(mc).sort((a, b) => b[1] - a[1]).slice(0, 5), best };
 }
 function chartSVG(D, W) {
-  const H = 170, L = 34, R = 6, T = 10, B = 24, cw = W - L - R, ch = H - T - B, n = D.slots.length;
+  const RW = 64, L = 34, R = 6, T = 10, B = 24, ch = 136, H = T + ch + RW + B, cw = W - L - R, n = D.slots.length;
   const max = Math.max(10, ...D.slots.map((s) => s.n)), step = Math.ceil(max / 3 / 5) * 5, top = step * 3;
   const bw = cw / n, gap = Math.min(4, bw * 0.25);
   let g = "";
@@ -1175,6 +1230,18 @@ function chartSVG(D, W) {
     if (s.partial) g += `<text x="${x + w / 2}" y="${y - 4}" text-anchor="middle" font-size="9" fill="var(--faint)">일부</text>`;
   });
   if (firstMissing >= 0) { const mx = L + ((firstMissing + lastMissing + 1) / 2) * bw; g += `<text x="${mx}" y="${T + ch - 26}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--faint)">수집 전 · 데이터 없음</text>`; }
+  /* 막대 아래: 부정·현장피해를 원 크기로 (숫자 없이, 많을수록 크고 진하게). 누르면 그날 그 기사만 */
+  const yN = T + ch + 18, yD = T + ch + 48, bmax = Math.max(1, ...D.slots.map((s) => Math.max(s.cl ? s.cl.neg : 0, s.cl ? s.cl.dmg : 0)));
+  const rmax = Math.max(4, Math.min(13, bw * 0.46)), rmin = Math.min(4, rmax * 0.55);
+  g += `<line x1="${L}" x2="${W - R}" y1="${T + ch + 3}" y2="${T + ch + 3}" stroke="var(--line)" stroke-width="1"/>`;
+  g += `<text x="${L - 6}" y="${yN + 4}" text-anchor="end" font-size="10" font-weight="700" fill="#C2372D">부정</text><text x="${L - 6}" y="${yD - 2}" text-anchor="end" font-size="10" font-weight="700" fill="#C96A0A">현장</text><text x="${L - 6}" y="${yD + 10}" text-anchor="end" font-size="10" font-weight="700" fill="#C96A0A">피해</text>`;
+  D.slots.forEach((s, i) => {
+    if (!s.ok || !s.cl) return; const cx = L + i * bw + bw / 2;
+    [["neg", yN, "#D6453A"], ["dmg", yD, "#E07B12"]].forEach(([c, cy, col]) => {
+      const v = s.cl[c]; if (!v) return; const r = rmin + Math.sqrt(v / bmax) * (rmax - rmin), op = (0.42 + 0.5 * v / bmax).toFixed(2);
+      g += `<circle class="bub${D.weekly ? "" : " hitb"}" cx="${cx}" cy="${cy}" r="${r.toFixed(1)}" fill="${col}" fill-opacity="${op}"${D.weekly ? "" : ` data-sday="${dKey(s.date)}" data-sfilt="${c}" tabindex="0" role="button" aria-label="${md(s.date)} ${CLS[c]} 기사 ${v}건 보기"`}><title>${md(s.date)}${D.weekly ? " 주" : ""} ${CLS[c]} ${v}건</title></circle>`;
+    });
+  });
   const labIdx = n <= 7 ? D.slots.map((_, i) => i) : [0, Math.floor(n / 2), n - 1];
   labIdx.forEach((i) => { const s = D.slots[i]; g += `<text x="${L + i * bw + bw / 2}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--faint)">${D.weekly ? mdS(s.date) + "주" : n <= 7 ? ["일", "월", "화", "수", "목", "금", "토"][s.date.getDay()] + " " + s.date.getDate() : mdS(s.date)}</text>`; });
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${D.weekly ? "주별" : "일별"} '${STAT_WORD}' 기사 수"><defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--line2)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--line)" stroke-width="3"/></pattern></defs>${g}</svg>`;
@@ -1196,7 +1263,8 @@ function statsHTML(wide) {
       <div><small>하루 평균</small><b>${D.avg.toFixed(1)}<span>건</span></b>${D.best ? `<em>가장 많은 날 ${md(D.best.date)} ${D.best.n}건</em>` : ""}</div>
       <div><small>이전 기간 대비</small>${chg === null ? `<b class="na">비교 전</b><em>이전 ${D.P}일 데이터가 아직 없어요</em>` : `<b class="${chg >= 0 ? "up" : "down"}">${chg >= 0 ? "+" : ""}${chg}<span>%</span></b>`}</div>
     </div>
-    <section class="st-card"><h3>${D.weekly ? "주별" : "일별"} 기사 수 <small>${D.weekly ? "오늘은 집계 중이라 연하게 표시" : "막대를 누르면 그날 기사를 볼 수 있어요"}</small></h3>${chartSVG(D, wide ? 1120 : 340)}</section>
+    ${clsHTML(D)}
+    <section class="st-card"><h3>${D.weekly ? "주별" : "일별"} 기사 수 <small>${D.weekly ? "오늘은 집계 중이라 연하게 표시" : "막대나 원을 누르면 그날 기사를 볼 수 있어요"}</small></h3>${chartSVG(D, wide ? 1120 : 340)}<div class="cl-lg"><span><i class="neg"></i>부정(기관 평판)</span><span><i class="dmg"></i>현장피해(재해·병해)</span><span class="f">원이 클수록 많아요</span></div></section>
     <div class="st-cols">
     <section class="st-card"><h3>많이 다룬 매체 <small>이 기간 상위 5</small></h3>${D.media.length ? D.media.map(([m, n], i) => `<div class="st-bar"><span>${i + 1}. ${esc(m)}</span><i><em style="width:${n / D.media[0][1] * 100}%;background:#34A98A"></em></i><b>${n}</b></div>`).join("") : `<div class="st-note small">아직 기사가 없어요</div>`}</section>
     <section class="st-card"><h3>오늘 많이 보도된 소식 <small>여러 매체가 함께 다룬 기사</small></h3>${issues.length ? issues.map(([t, n, link], i) => `<a class="st-rank" data-rd="${esc(rdId(link))}" href="${esc(safeUrl(link))}" target="_blank" rel="noopener"><em>${i + 1}</em><span>${esc(t)}</span><b>${n}개 매체</b></a>`).join("") : `<div class="st-note small">여러 매체가 함께 다룬 소식이 아직 없어요</div>`}</section>
@@ -1204,19 +1272,92 @@ function statsHTML(wide) {
     <div class="st-note small">네이버 뉴스 검색 기준 · 30분마다 갱신 · 같은 소식을 여러 매체가 쓰면 각각 셉니다.</div>
   </div>`;
 }
+/* 부정·현장피해·긍정 요약 + 확인이 필요한 기사 */
+function clsHTML(D) {
+  const top = D.negs.slice().sort((a, b) => b.date - a.date || (b.a[3] || 0) - (a.a[3] || 0)).slice(0, 3);
+  const item = ({ a, k, date }) => `<a class="cl-al" data-rd="${esc(rdId(a[2]))}" href="${esc(safeUrl(a[2]))}" target="_blank" rel="noopener"><span class="t">${markTitle(a[0], k)}</span><span class="m">${esc(a[1])} · ${md(date)}${a[3] > 1 ? ` · ${a[3]}개 매체` : ""}</span></a>`;
+  return `<div class="cl-kpis"><div class="neg"><small>부정</small><b>${D.cl.neg}</b></div><div class="dmg"><small>현장피해</small><b>${D.cl.dmg}</b></div><div class="pos"><small>긍정</small><b>${D.cl.pos}</b></div></div>
+    <section class="st-card cl-alert"><h3><i></i>확인이 필요한 기사 <small>이 기간 부정 ${D.cl.neg}건 · 같은 소식은 묶어서 셈</small></h3>
+    ${top.length ? top.map(item).join("") + (D.negs.length > 3 ? `<button type="button" class="cl-more" data-negall>부정 기사 ${D.negs.length}건 모두 보기 ›</button>` : "") : `<div class="st-note small">이 기간에는 부정으로 나뉜 기사가 없어요.</div>`}</section>`;
+}
+/* 기사 줄: 분류 점·꼬리표·걸린 단어 + 관리자는 분류 고치기 */
+function clsItem(a, at) {
+  const [t, src, link, media] = a, k = classify(t);
+  const fix = isAdmin() ? `<select class="cl-fix" data-fix="${esc(t)}" aria-label="분류 고치기">${Object.entries(CLS).map(([c, nm]) => `<option value="${c}"${c === k.c ? " selected" : ""}>${nm}</option>`).join("")}</select>` : "";
+  return `<div class="cl-row"><i class="cl-dot ${k.c}"></i><a class="sd-it" data-rd="${esc(rdId(link))}" href="${esc(safeUrl(link))}" target="_blank" rel="noopener"><span class="sd-t">${k.c !== "neu" ? `<em class="cl-tag ${k.c}">${CLS[k.c]}</em>` : ""}${markTitle(t, k)}</span><span class="sd-m">${esc(src)}${media > 1 ? ` · <b>${media}개 매체</b>` : ""}${at}${k.fixed ? " · 직접 고친 분류" : ""}</span></a>${fix}</div>`;
+}
+function statNegSheet() {
+  const D = statsData();
+  return `<div class="grab"></div><div class="sh-head"><h2>부정 기사 ${D.negs.length}건</h2><button type="button" class="x" data-close>닫기</button></div>
+    <p class="tm-p">최근 ${D.P}일 · 최근 날짜부터</p><div class="sd-list">${D.negs.map(({ a, date }) => clsItem(a, ` · ${md(date)}`)).join("") || `<div class="st-note">부정 기사가 없어요.</div>`}</div>`;
+}
 function statDaySheet(k) {
   const v = S.rda && S.rda.days && S.rda.days[k]; const d = fromKey(k);
   const head = `<div class="grab"></div><div class="sh-head"><h2>${md(d)} '${STAT_WORD}' 기사</h2><button type="button" class="x" data-close>닫기</button></div>`;
   if (!v) return head + `<div class="st-note">이날 기사 목록이 없어요.</div>`;
-  const list = v.list || [];
-  return head + `<p class="tm-p">모두 <b>${v.n}건</b>${k === dKey(new Date()) ? " (오늘, 집계 중)" : ""} · 같은 소식은 묶어서 여러 매체가 다룬 순으로 보여 줘요${list.length >= 80 ? " (상위 80개 소식)" : ""}.</p>
-    <div class="sd-list">${list.map(([t, src, link, media, at]) => `<a class="sd-it" data-rd="${esc(rdId(link))}" href="${esc(safeUrl(link))}" target="_blank" rel="noopener"><span class="sd-t">${esc(t)}</span><span class="sd-m">${esc(src)}${media > 1 ? ` · <b>${media}개 매체</b>` : ""} · ${new Date(at).getHours()}시</span></a>`).join("") || `<div class="st-note">목록을 불러오지 못했어요. 새로고침 후 다시 열어 주세요.</div>`}</div>`;
+  const all = v.list || [], f = S.sdFilt || "all", cl = dayCls(v);
+  const list = f === "all" ? all : all.filter((a) => classify(a[0]).c === f);
+  const tabs = `<div class="cl-tabs">${[["all", "전체", all.length], ["neg", "부정", cl.neg], ["dmg", "현장피해", cl.dmg], ["pos", "긍정", cl.pos], ["neu", "중립", cl.neu]].map(([c, nm, n]) => `<button type="button" class="${c}" data-sfilt2="${c}" aria-pressed="${f === c}">${nm} <b>${n}</b></button>`).join("")}</div>`;
+  return head + tabs + `<p class="tm-p">모두 <b>${v.n}건</b>${k === dKey(new Date()) ? " (오늘, 집계 중)" : ""} · 같은 소식은 묶어서 여러 매체가 다룬 순으로 보여 줘요${list.length >= 80 ? " (상위 80개 소식)" : ""}.</p>
+    <div class="sd-list">${list.map((a) => clsItem(a, ` · ${new Date(a[4]).getHours()}시`)).join("") || `<div class="st-note">${all.length ? "이 분류에 해당하는 기사가 없어요." : "목록을 불러오지 못했어요. 새로고침 후 다시 열어 주세요."}</div>`}</div>`;
+}
+/* 통계 단어 규칙 (설정) — 누구나 볼 수 있고, 관리자만 고침 */
+function rulesSheet() {
+  const adm = isAdmin(), R = adm ? (S.rdraft = S.rdraft || JSON.parse(JSON.stringify(RULES))) : RULES;
+  const D = S.rda && S.rda.days ? S.rda : null; const pv = { neg: 0, dmg: 0, pos: 0 }, cur = { neg: 0, dmg: 0, pos: 0 };
+  if (D) for (let i = 0; i < 7; i++) { const v = D.days[dKey(addDays(TODAY, -i))]; if (!v) continue; const a = dayCls(v, R), b = dayCls(v); ["neg", "dmg", "pos"].forEach((c) => { pv[c] += a[c]; cur[c] += b[c]; }); }
+  const diff = (c) => (adm && pv[c] !== cur[c] ? ` <em>(${pv[c] > cur[c] ? "+" : ""}${pv[c] - cur[c]})</em>` : "");
+  const nfix = Object.keys(R.fix || {}).length;
+  return `<div class="grab"></div><div class="sh-head"><h2>통계 단어 규칙</h2><button type="button" class="x" data-close>닫기</button></div>
+    ${adm ? `<div class="rl-lock on">관리자 모드 · 저장하면 모든 사람의 통계에 같이 적용돼요 <button type="button" data-rlogout>나가기</button></div>`
+      : `<div class="rl-lock">기사 제목에 든 단어로 부정·현장피해·긍정을 나눠요. 고치기는 관리자만 할 수 있어요.<div class="rl-in"><input class="fld" type="password" id="rl-key" placeholder="관리자 비밀번호" autocomplete="current-password"><button type="button" class="addbtn" data-rlogin>들어가기</button></div></div>`}
+    ${RULE_GROUPS.map(([g, nm, help]) => `<section class="rl-g ${g}"><h3>${nm}<small>${R[g].length}개</small></h3><p>${help}</p><div class="rl-chips">${R[g].map((w) => `<span>${esc(w)}${adm ? `<button type="button" data-rdel="${g}" data-w="${esc(w)}" aria-label="${esc(w)} 빼기">×</button>` : ""}</span>`).join("")}</div>
+      ${adm ? `<div class="rl-add"><input class="fld" data-raddin="${g}" placeholder="${nm}에 단어 추가 (쉼표로 여러 개)" maxlength="60"><button type="button" class="addbtn" data-radd="${g}">추가</button></div>` : ""}</section>`).join("")}
+    ${nfix ? `<p class="tm-p">기사별로 직접 고친 분류 ${nfix}건 ${adm ? `<button type="button" class="cl-more" data-rfixclear>모두 지우기</button>` : ""}</p>` : ""}
+    <div class="rl-prev"><b>${adm ? "이 규칙으로 지난 7일을 나누면" : "지난 7일 결과"}</b><div><span class="neg">부정 ${pv.neg}${diff("neg")}</span><span class="dmg">현장피해 ${pv.dmg}${diff("dmg")}</span><span class="pos">긍정 ${pv.pos}${diff("pos")}</span></div>${RULES_AT ? `<small>마지막 저장 ${md(new Date(RULES_AT))}</small>` : "<small>기본 규칙 사용 중</small>"}</div>
+    ${adm ? `<button type="button" class="addbtn rl-save" data-rsave>저장하고 모두에게 적용</button>` : ""}`;
 }
 function bindStats(app, rerender) {
-  const openDay = (el) => { S.sheet = { kind: "statDay", arg: el.dataset.sday }; renderSheet(app); };
+  const openDay = (el) => { S.sdFilt = el.dataset.sfilt || "all"; S.sheet = { kind: "statDay", arg: el.dataset.sday }; renderSheet(app); };
+  const adminFetch = (method, body) => { let key = ""; try { key = sessionStorage.getItem("db-admin") || ""; } catch (e) {} return fetch("/api/rules", { method, headers: { "Content-Type": "application/json", "X-Admin-Key": key }, body: body ? JSON.stringify(body) : undefined }); };
+  const addWords = (g) => { const inp = $(`[data-raddin="${g}"]`, app); if (!inp) return; const ws = inp.value.split(",").map((w) => w.replace(/\s+/g, " ").trim()).filter((w) => w && w.length <= 30);
+    if (!ws.length) return; const arr = S.rdraft[g]; ws.forEach((w) => { if (!arr.includes(w)) arr.push(w); }); renderSheet(app); toast(app, `${ws.join(", ")} 추가 · 저장해야 적용돼요`); };
+  app.addEventListener("keydown", (e) => { const i = e.target.closest && e.target.closest("[data-raddin]"); if (i && e.key === "Enter" && !e.isComposing) { e.preventDefault(); addWords(i.dataset.raddin); } const k = e.target.id === "rl-key"; if (k && e.key === "Enter") { e.preventDefault(); $("[data-rlogin]", app)?.click(); } });
+  app.addEventListener("change", async (e) => {
+    const sel = e.target.closest && e.target.closest("select[data-fix]"); if (!sel || !isAdmin()) return;
+    const R = JSON.parse(JSON.stringify(RULES)); R.fix = R.fix || {}; const t = sel.dataset.fix;
+    let auto; { const tmp = { ...R, fix: {} }; auto = classify(t, tmp).c; }
+    if (sel.value === auto) delete R.fix[t]; else R.fix[t] = sel.value;
+    const r = await adminFetch("PUT", { rules: R, base: RULES_AT });
+    if (r.ok) { RULES = normRules(R); RULES_AT = (await r.json()).updated_at; try { localStorage.setItem(RULES_KEY, JSON.stringify({ rules: R, at: RULES_AT })); } catch (x) {} toast(app, `‘${CLS[sel.value]}’(으)로 고쳤어요 · 모두에게 적용`); renderSheet(app); rerender(); }
+    else toast(app, r.status === 409 ? "다른 관리자가 방금 규칙을 바꿨어요 · 새로고침 후 다시 해 주세요" : r.status === 401 ? "관리자 비밀번호가 바뀌었어요 · 다시 들어가 주세요" : "저장하지 못했어요");
+  });
   app.addEventListener("click", (e) => { const h = e.target.closest("[data-sday]"); if (h && app.contains(h)) openDay(h); });
   app.addEventListener("keydown", (e) => { const h = e.target.closest && e.target.closest("[data-sday]"); if (h && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openDay(h); } });
-  app.addEventListener("click", (e) => { const t = e.target.closest("button"); if (!t || !app.contains(t)) return; if (t.dataset.period) { S.statPeriod = +t.dataset.period; rerender(); } });
+  app.addEventListener("click", async (e) => {
+    const t = e.target.closest("button"); if (!t || !app.contains(t)) return;
+    if (t.dataset.period) { S.statPeriod = +t.dataset.period; rerender(); return; }
+    if (t.dataset.sfilt2) { S.sdFilt = t.dataset.sfilt2; renderSheet(app); return; }
+    if (t.dataset.negall !== undefined) { S.sheet = { kind: "statNeg" }; renderSheet(app); return; }
+    if (t.dataset.rules !== undefined) { S.rdraft = null; S.sheet = { kind: "rules" }; renderSheet(app); fetchRules().then(() => { if (S.sheet && S.sheet.kind === "rules" && !isAdmin()) renderSheet(app); }); return; }
+    if (t.dataset.rlogin !== undefined) {
+      const v = ($("#rl-key", app) || {}).value || ""; if (!v) return;
+      try { sessionStorage.setItem("db-admin", v); } catch (x) {}
+      const r = await adminFetch("POST").catch(() => null);
+      if (r && r.ok) { await fetchRules(); S.rdraft = null; toast(app, "관리자 모드예요"); renderSheet(app); rerender(); }
+      else { try { sessionStorage.removeItem("db-admin"); } catch (x) {} toast(app, r && r.status === 503 ? "관리자 비밀번호가 아직 설정되지 않았어요 (Vercel STATS_ADMIN_KEY)" : "비밀번호가 맞지 않아요"); }
+      return;
+    }
+    if (t.dataset.rlogout !== undefined) { try { sessionStorage.removeItem("db-admin"); } catch (x) {} S.rdraft = null; renderSheet(app); rerender(); return; }
+    if (t.dataset.rdel && S.rdraft) { const g = t.dataset.rdel; S.rdraft[g] = S.rdraft[g].filter((w) => w !== t.dataset.w); renderSheet(app); return; }
+    if (t.dataset.radd && S.rdraft) { addWords(t.dataset.radd); return; }
+    if (t.dataset.rfixclear !== undefined && S.rdraft) { S.rdraft.fix = {}; renderSheet(app); return; }
+    if (t.dataset.rsave !== undefined && S.rdraft) {
+      t.disabled = true; const r = await adminFetch("PUT", { rules: S.rdraft, base: RULES_AT }).catch(() => null); t.disabled = false;
+      if (r && r.ok) { RULES = normRules(S.rdraft); RULES_AT = (await r.json()).updated_at; try { localStorage.setItem(RULES_KEY, JSON.stringify({ rules: S.rdraft, at: RULES_AT })); } catch (x) {} S.rdraft = null; toast(app, "저장했어요 · 모든 사람의 통계에 적용돼요"); renderSheet(app); rerender(); }
+      else toast(app, r && r.status === 409 ? "다른 관리자가 방금 저장했어요 · 닫았다 다시 열어 주세요" : r && r.status === 401 ? "비밀번호가 맞지 않아요 · 다시 들어가 주세요" : "저장하지 못했어요");
+    }
+  });
 }
 
 S.cats.forEach((c) => { c.count = artsOf(c.id).length; });

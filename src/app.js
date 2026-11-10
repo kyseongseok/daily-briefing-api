@@ -169,25 +169,50 @@ function loadCachedNews() {
 function rememberScrap(id) { const a = S.arts.find((x) => x.id === id); if (a) S.saved[id] = { id: a.id, cat: a.cat, title: a.title, src: a.src, link: a.link, t: a.t, time: a.time }; }
 function scrapList() { return [...S.scrap].reverse().map((id) => S.arts.find((a) => a.id === id) || S.saved[id]).filter(Boolean).map((a) => ({ ...a, time: a.t ? ago(a.t) : a.time })); }
 /* 새로고침: 다시 불러와서 새로 생긴 기사 수를 알려 줌 */
+let NEWS_AT = 0; // 마지막으로 서버에서 기사를 받은 시각
+function newPill(app, n) {
+  $$(".newpill", app).forEach((x) => x.remove());
+  const p = document.createElement("button"); p.type = "button"; p.className = "newpill"; p.dataset.gonew = ""; p.textContent = `새 기사 ${n}건 · 분야별에서 보기`; app.append(p);
+  setTimeout(() => p.remove(), 5000); setTimeout(() => S.arts.forEach((a) => delete a.fresh), 2500);
+}
 async function refreshNews(app, btn, rerender, onNew) {
   btn.classList.remove("spin"); void btn.offsetWidth; btn.classList.add("spin");
   const before = new Set(S.arts.map((a) => a.id));
   fetchStats(true).then(rerender);
   try {
-    applyNews(await fetchNews());
+    applyNews(await fetchNews()); NEWS_AT = Date.now();
     const fresh = S.arts.filter((a) => !before.has(a.id));
     fresh.forEach((a) => { a.fresh = true; });
     rerender();
     if (!fresh.length) { toast(app, "새 기사가 없어요 · 방금 확인했어요"); return; }
-    const p = document.createElement("button"); p.type = "button"; p.className = "newpill"; p.dataset.gonew = ""; p.textContent = `새 기사 ${fresh.length}건 · 분야별에서 보기`; app.append(p);
-    setTimeout(() => p.remove(), 5000); setTimeout(() => S.arts.forEach((a) => delete a.fresh), 2500);
+    newPill(app, fresh.length);
   } catch (e) { if (!e.stale) toast(app, "기사를 불러오지 못했어요 · 잠시 뒤 다시 눌러 주세요"); }
+}
+/* 다른 앱을 쓰다 돌아왔을 때: 마지막으로 불러온 지 10분이 지났으면 조용히 새로고침
+   (새 기사가 있을 때만 '새 기사 N건' 알림, 없으면 아무 표시 없음) */
+const AUTO_REFRESH_MS = 10 * 60000;
+let autoBusy = false;
+async function autoRefresh(rerender) {
+  if (document.visibilityState !== "visible" || autoBusy || !NEWS_AT || Date.now() - NEWS_AT < AUTO_REFRESH_MS) return;
+  autoBusy = true;
+  const app = document.getElementById("app"), before = new Set(S.arts.map((a) => a.id));
+  try {
+    fetchStats(true).then(rerender);
+    applyNews(await fetchNews()); NEWS_AT = Date.now();
+    const fresh = S.arts.filter((a) => !before.has(a.id));
+    fresh.forEach((a) => { a.fresh = true; });
+    rerender();
+    if (fresh.length && app) newPill(app, fresh.length);
+  } catch (e) { /* 조용히 넘어감: 다음에 돌아올 때 다시 시도 */ }
+  autoBusy = false;
 }
 /* 처음 열 때: 보관된 오늘 기사 → 바로 표시, 그 뒤 서버에서 최신으로 */
 async function bootNews(rerender) {
   loadCachedNews(); rerender();
   fetchStats().then(rerender);
-  try { applyNews(await fetchNews()); rerender(); } catch (e) { /* 서버 준비 전에는 예시 기사 유지 */ }
+  try { applyNews(await fetchNews()); NEWS_AT = Date.now(); rerender(); } catch (e) { /* 서버 준비 전에는 예시 기사 유지 */ }
+  document.addEventListener("visibilitychange", () => autoRefresh(rerender));
+  window.addEventListener("pageshow", (e) => { if (e.persisted) autoRefresh(rerender); }); // 뒤로가기 캐시에서 돌아온 경우
 }
 
 function applyAppVars(app) {

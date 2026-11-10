@@ -530,10 +530,10 @@ function dexCardHTML(x) {
       <div class="dxc-info"><div><small>만난 날</small><b>${esc(x.got || "")}</b></div><div><small>얻는 법</small><b>${esc(how)}</b></div></div>
       <div class="dxc-foot"><span>DAILY BRIEFING</span><span>${pad(x.no)} / ${pad(total)}</span></div>
     </div></div><div class="dxc-glare"></div></div></div></div>
-    <p class="dxc-line">${esc(line)}</p>
+    <div class="dxc-side"><p class="dxc-line">${esc(line)}</p>
     <p class="dxc-hint">카드를 끌어서 기울여 보세요</p>
     ${"DeviceOrientationEvent" in window && matchMedia("(pointer: coarse)").matches ? '<button type="button" class="dxc-gy" aria-pressed="false">폰 기울여서 보기</button>' : ""}
-    <p class="dxc-msg" hidden></p></div>`;
+    <p class="dxc-msg" hidden></p></div></div>`;
 }
 const DXC = { fx: null, raf: 0, gyro: false, got: false, base: null, card: null };
 function dexCardStop() {

@@ -589,3 +589,368 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 /* 기사 카드 전체를 눌러 열기 */
 [data-card] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 [data-card]:active { background-color: color-mix(in srgb, var(--surface) 92%, var(--ink, #000)); }
+
+/* ===== DAILY BRIEFING 도감 움직이는 효과 (dexfx) =====
+   구조: .fx-stage(배경) > .fx-art(그림 위치) > .fx-mover(캐릭터 움직임) > img + 효과 레이어 */
+.fx-stage{position:relative;overflow:hidden;isolation:isolate}
+.fx-art{position:absolute;left:50%;bottom:5%;transform:translateX(-50%)}
+.fx-mover{position:absolute;inset:0;transform-origin:50% 100%}
+.fx-mover>img.fx-img{position:absolute;inset:0;width:100%;height:100%;z-index:1;display:block;max-width:none}
+.fx-l{position:absolute;inset:0;pointer-events:none}
+.fx-back{z-index:0}.fx-front{z-index:3}.fx-sky{z-index:0}.fx-top{z-index:4}
+.fx-paused *,.fx-paused{animation-play-state:paused!important}
+.fx-c{position:absolute;transform:translate(-50%,-50%)}
+.fx-p{position:absolute;will-change:transform,opacity;pointer-events:none}
+
+/* 공통: 전설 반짝이 */
+.fx-spark{width:9px;height:9px;transform:translate(-50%,-50%) scale(0);animation:fxSpark 1.3s ease-in-out forwards}
+.fx-spark::before,.fx-star::before,.fx-glint::before{content:"";position:absolute;inset:0;background:#fff8d6;
+  clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%);filter:drop-shadow(0 0 3px #ffd560)}
+@keyframes fxSpark{0%{transform:translate(-50%,-50%) scale(0) rotate(0)}40%{transform:translate(-50%,-50%) scale(1) rotate(45deg)}100%{transform:translate(-50%,-50%) scale(0) rotate(90deg)}}
+.fx-star{transform:translate(-50%,-50%) scale(0);animation:fxTw 1.8s ease-in-out infinite}
+@keyframes fxTw{0%,100%{transform:translate(-50%,-50%) scale(0) rotate(0)}45%{transform:translate(-50%,-50%) scale(1) rotate(45deg)}70%{transform:translate(-50%,-50%) scale(0) rotate(90deg)}}
+
+/* 공통: 박쥐 */
+.fx-bat{position:absolute;width:13%;aspect-ratio:2/1;z-index:5}
+.fx-bat svg{width:100%;height:100%;overflow:visible;display:block}
+.fx-bat .w{transform-origin:50% 50%;animation:fxFlap .22s ease-in-out infinite alternate}
+@keyframes fxFlap{from{transform:scaleY(1)}to{transform:scaleY(-.45)}}
+.fx-bat.b1{animation:fxFly1 7s linear infinite}
+.fx-bat.b2{width:9%;animation:fxFly2 9s linear infinite 2.5s;left:110%}
+@keyframes fxFly1{0%{left:-15%;top:30%}25%{top:18%}50%{top:28%}75%{top:14%}100%{left:110%;top:22%}}
+@keyframes fxFly2{0%{left:110%;top:12%}30%{top:22%}60%{top:8%}100%{left:-15%;top:18%}}
+/* 공통: 안개 */
+.fx-fog{position:absolute;left:-30%;width:160%;height:22%;bottom:-6%;filter:blur(10px);opacity:.55;
+  background:radial-gradient(ellipse at 20% 50%,var(--fog,rgba(220,210,255,.7)),transparent 60%),radial-gradient(ellipse at 60% 60%,var(--fog,rgba(220,210,255,.6)),transparent 55%),radial-gradient(ellipse at 90% 40%,var(--fog,rgba(220,210,255,.6)),transparent 55%);
+  animation:fxDrift 9s ease-in-out infinite alternate;z-index:4}
+.fx-fog.f2{bottom:-2%;opacity:.35;animation-duration:12s;animation-direction:alternate-reverse}
+@keyframes fxDrift{from{transform:translateX(-8%)}to{transform:translateX(8%)}}
+.fx-skydots i{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;animation:fxBlink 2.4s ease-in-out infinite}
+@keyframes fxBlink{0%,100%{opacity:.2}50%{opacity:1}}
+
+/* ---------- 응원단장 ---------- */
+.bg-cheer{background:radial-gradient(110% 80% at 30% 15%,#ffcf5c 0%,#e8573f 45%,#8a1f3a 100%)}
+.fxs-cheer .fx-mover{animation:fxPump 1.1s cubic-bezier(.3,0,.3,1) infinite}
+@keyframes fxPump{0%,100%{transform:translateY(0) rotate(0)}18%{transform:translateY(-3.5%) rotate(-1.6deg)}32%{transform:translateY(-2.5%) rotate(-.8deg)}55%{transform:translateY(0) rotate(0)}}
+.fx-speed{height:3px;border-radius:3px;background:linear-gradient(90deg,rgba(255,255,255,0),#fff 60%,#fff6c2);transform-origin:0 50%;
+  transform:translate(0,-50%) rotate(var(--a)) translateX(var(--d0)) scaleX(.2);opacity:0;animation:fxSpeed 1.1s ease-out infinite;animation-delay:var(--dl,0s)}
+@keyframes fxSpeed{0%,8%{opacity:0;transform:translate(0,-50%) rotate(var(--a)) translateX(var(--d0)) scaleX(.2)}
+  20%{opacity:1;transform:translate(0,-50%) rotate(var(--a)) translateX(calc(var(--d0) * 1.3)) scaleX(1)}
+  45%,100%{opacity:0;transform:translate(0,-50%) rotate(var(--a)) translateX(calc(var(--d0) * 2.1)) scaleX(.5)}}
+.fx-burst{border-radius:50%;border:3px solid rgba(255,248,200,.95);opacity:0;animation:fxBurst 1.1s ease-out infinite}
+@keyframes fxBurst{0%,10%{transform:translate(-50%,-50%) scale(.3);opacity:0}18%{opacity:1}45%,100%{transform:translate(-50%,-50%) scale(1.6);opacity:0}}
+.fx-conf{width:6px;height:9px;border-radius:1px;animation:fxConf var(--t) linear forwards}
+@keyframes fxConf{0%{transform:translate(0,0) rotate(0) rotateY(0);opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(540deg) rotateY(720deg);opacity:.9}}
+
+/* ---------- 전하 ---------- */
+.bg-king{background:radial-gradient(100% 75% at 50% 35%,#7a3a2a 0%,#3d1c22 60%,#22111a 100%)}
+.fx-rays{border-radius:50%;
+  background:repeating-conic-gradient(from 0deg,rgba(255,214,110,.55) 0deg 6deg,rgba(255,214,110,0) 6deg 18deg);
+  -webkit-mask:radial-gradient(circle,#000 18%,rgba(0,0,0,.5) 45%,transparent 70%);mask:radial-gradient(circle,#000 18%,rgba(0,0,0,.5) 45%,transparent 70%);
+  animation:fxSpin 40s linear infinite}
+.fx-rays.r2{background:repeating-conic-gradient(from 9deg,rgba(255,240,180,.35) 0deg 3deg,rgba(255,240,180,0) 3deg 24deg);animation-duration:60s;animation-direction:reverse}
+@keyframes fxSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.fx-halo{border-radius:50%;background:radial-gradient(circle,rgba(255,226,140,.9) 0%,rgba(255,200,90,.45) 35%,rgba(255,190,80,0) 68%);animation:fxHalo 3.6s ease-in-out infinite}
+@keyframes fxHalo{0%,100%{transform:translate(-50%,-50%) scale(.92);opacity:.75}50%{transform:translate(-50%,-50%) scale(1.06);opacity:1}}
+.fx-mote{border-radius:50%;background:#ffe9a3;box-shadow:0 0 6px #ffd560;animation:fxMote var(--t) ease-in-out forwards}
+@keyframes fxMote{0%{transform:translate(0,0);opacity:0}20%{opacity:1}100%{transform:translate(var(--dx),var(--dy));opacity:0}}
+
+/* ---------- 캬~ ---------- */
+.bg-kya{background:radial-gradient(120% 90% at 30% 20%,#7a4a1c 0%,#3c2312 60%,#24150b 100%)}
+.fx-bokeh{border-radius:50%;filter:blur(2px);background:radial-gradient(circle,rgba(255,200,110,.55),rgba(255,180,80,0) 70%);animation:fxBokeh 6s ease-in-out infinite alternate}
+@keyframes fxBokeh{from{transform:translateY(0);opacity:.5}to{transform:translateY(-12%);opacity:1}}
+.fx-mug{position:absolute;inset:0;z-index:2;animation:fxMug 3.2s ease-in-out infinite}
+.fx-mug>img{position:absolute;inset:0;width:100%;height:100%;max-width:none}
+@keyframes fxMug{0%,8%,100%{transform:rotate(0) translateY(0)}16%{transform:rotate(-9deg) translateY(-3%)}24%{transform:rotate(-5deg) translateY(-2%)}32%{transform:rotate(-8deg) translateY(-2.6%)}55%{transform:rotate(0) translateY(0)}70%{transform:rotate(2deg)}82%{transform:rotate(0)}}
+.fx-beer{position:absolute;overflow:hidden;border-radius:0 0 8% 8%}
+.fx-bub{border-radius:50%;background:rgba(255,255,240,.85);box-shadow:0 0 2px rgba(255,255,255,.8);animation:fxBub var(--t) linear forwards}
+@keyframes fxBub{0%{transform:translate(0,0);opacity:0}10%{opacity:.9}100%{transform:translate(var(--dx),calc(var(--h) * -1));opacity:.2}}
+.fx-froth{border-radius:50%;background:#fffdf3;animation:fxFroth .9s ease-out forwards}
+@keyframes fxFroth{0%{transform:translate(-50%,0) scale(.2);opacity:1}100%{transform:translate(calc(-50% + var(--dx)),-260%) scale(1);opacity:0}}
+.fx-blush{border-radius:50%;background:radial-gradient(circle,rgba(255,95,120,.85),rgba(255,110,130,.35) 45%,rgba(255,110,130,0) 70%);animation:fxBlush 1.6s ease-in-out infinite}
+@keyframes fxBlush{0%,100%{transform:translate(-50%,-50%) scale(.55);opacity:.35}50%{transform:translate(-50%,-50%) scale(1.35);opacity:.95}}
+.fx-kya{font-family:var(--font);color:#fff5d6;font-size:clamp(18px,5.5vw,28px);white-space:nowrap;
+  text-shadow:0 2px 0 #b5651d,0 0 10px rgba(255,200,90,.8);transform:translate(-50%,-50%) scale(0);animation:fxKya 3.2s ease-in-out infinite}
+@keyframes fxKya{0%,8%{transform:translate(-50%,-50%) scale(0) rotate(-8deg);opacity:0}16%{transform:translate(-50%,-50%) scale(1.25) rotate(6deg);opacity:1}
+  22%{transform:translate(-50%,-50%) scale(1) rotate(-4deg)}60%{transform:translate(-50%,-62%) scale(1) rotate(-4deg);opacity:1}72%,100%{transform:translate(-50%,-75%) scale(.9) rotate(-4deg);opacity:0}}
+.fx-glint{transform:translate(-50%,-50%) scale(0);animation:fxTw 3.2s ease-in-out infinite .35s}
+.fx-glint::before{background:#fff}
+
+/* ---------- 새해 복 ---------- */
+.bg-newyear{background:linear-gradient(to bottom,#2b3f7a 0%,#c76a8f 48%,#ffbf73 78%,#ffe1a6 100%)}
+.fx-sun{border-radius:50%;background:radial-gradient(circle at 45% 45%,#fff3c4 0%,#ffcf4d 45%,#ff8a2b 100%);box-shadow:0 0 40px 14px rgba(255,190,80,.55);animation:fxSunPulse 3s ease-in-out infinite}
+@keyframes fxSunPulse{0%,100%{box-shadow:0 0 34px 10px rgba(255,190,80,.45)}50%{box-shadow:0 0 54px 22px rgba(255,200,90,.7)}}
+.fx-sunrays{border-radius:50%;background:repeating-conic-gradient(rgba(255,230,150,.45) 0deg 8deg,rgba(255,230,150,0) 8deg 20deg);
+  -webkit-mask:radial-gradient(circle,transparent 20%,#000 24%,transparent 68%);mask:radial-gradient(circle,transparent 20%,#000 24%,transparent 68%);animation:fxSpin 30s linear infinite}
+.fx-sunrise{position:absolute;top:19%;left:5%;width:24%;aspect-ratio:1;animation:fxRise 2.4s ease-out both}
+@keyframes fxRise{from{transform:translateY(40%);opacity:0}to{transform:translateY(0);opacity:1}}
+.fx-greet{position:absolute;left:0;right:0;top:5%;text-align:center;font-family:"Nanum Brush Script",var(--font);color:#fff6e0;
+  font-size:clamp(19px,5.4vw,25px);white-space:nowrap;text-shadow:0 2px 6px rgba(80,20,40,.45);animation:fxGreet 6s ease-in-out infinite;z-index:1}
+@keyframes fxGreet{0%,100%{opacity:0;transform:translateY(6px)}15%,75%{opacity:1;transform:translateY(0)}}
+.fxs-newyear .fx-mover{animation:fxBow 3s ease-in-out infinite}
+@keyframes fxBow{0%,55%,100%{transform:translateY(0) scaleY(1)}65%{transform:translateY(2.5%) scaleY(.965) rotate(0)}78%{transform:translateY(0) scaleY(1)}}
+.fx-magpie{position:absolute;width:20%;aspect-ratio:2/1;z-index:2}
+.fx-magpie svg{width:100%;height:100%;overflow:visible;display:block}
+.fx-magpie .w{transform-origin:46% 50%;animation:fxFlap .3s ease-in-out infinite alternate}
+.fx-magpie.m1{animation:fxMag1 8s linear infinite}
+.fx-magpie.m2{width:14%;left:-25%;animation:fxMag1 10s linear infinite 3.5s}
+@keyframes fxMag1{0%{left:-25%;top:30%}30%{top:22%}60%{top:28%}100%{left:110%;top:16%}}
+
+/* ---------- 황금 새싹 · 황금 이삭 ---------- */
+.bg-gold{background:radial-gradient(100% 80% at 50% 40%,#5a4220 0%,#2c2010 60%,#17110a 100%)}
+.fx-sheen{position:absolute;inset:0;z-index:2;mix-blend-mode:screen;
+  -webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  background:linear-gradient(115deg,rgba(255,255,255,0) 40%,rgba(255,250,220,.15) 45%,rgba(255,255,245,.95) 50%,rgba(255,250,220,.15) 55%,rgba(255,255,255,0) 60%);
+  background-size:300% 100%;animation:fxSheen 3.2s ease-in-out infinite}
+@keyframes fxSheen{0%,15%{background-position:100% 0}75%,100%{background-position:0% 0}}
+.fx-hot{position:absolute;inset:0;z-index:2;mix-blend-mode:overlay;
+  -webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  background:radial-gradient(circle at var(--hx,30%) var(--hy,30%),rgba(255,255,255,.95) 0%,rgba(255,255,255,0) 28%);animation:fxHot 5s ease-in-out infinite}
+@property --hx{syntax:"<percentage>";inherits:false;initial-value:30%}
+@property --hy{syntax:"<percentage>";inherits:false;initial-value:30%}
+@keyframes fxHot{0%,100%{--hx:28%;--hy:30%}33%{--hx:70%;--hy:38%}66%{--hx:45%;--hy:68%}}
+.fx-goldglow{border-radius:50%;background:radial-gradient(circle,rgba(255,210,90,.55),rgba(255,190,60,0) 65%);animation:fxHalo 3s ease-in-out infinite}
+
+/* ---------- 비눗방울 ---------- */
+.bg-bubble{background:linear-gradient(to bottom,#bfe6ff 0%,#e8f6ff 55%,#fdf2ff 100%)}
+.fxs-bubble .fx-mover{animation:fxFloat 4.2s ease-in-out infinite}
+@keyframes fxFloat{0%,100%{transform:translate(0,0) rotate(-2deg)}25%{transform:translate(2%,-5%) rotate(1deg)}50%{transform:translate(0,-8%) rotate(2.5deg)}75%{transform:translate(-2%,-4%) rotate(0)}}
+.fxs-bubble .fx-img{animation:fxWobble 1.7s ease-in-out infinite}
+@keyframes fxWobble{0%,100%{transform:scale(1,1)}50%{transform:scale(1.025,.975)}}
+.fx-film{border-radius:50%;z-index:2;opacity:.45;mix-blend-mode:soft-light;
+  background:conic-gradient(#ff7ab6,#ffe36e,#8affc1,#7ad7ff,#b48bff,#ff7ab6);
+  -webkit-mask:radial-gradient(circle,transparent 62%,#000 82%,transparent 100%);mask:radial-gradient(circle,transparent 62%,#000 82%,transparent 100%);animation:fxSpin 6s linear infinite}
+.fx-bgbub{border-radius:50%;border:1.5px solid rgba(255,255,255,.9);background:radial-gradient(circle at 32% 30%,rgba(255,255,255,.9) 0 8%,rgba(255,255,255,0) 12%),radial-gradient(circle,rgba(180,220,255,0) 55%,rgba(200,170,255,.35) 100%);
+  animation:fxBgBub var(--t) linear forwards}
+@keyframes fxBgBub{0%{transform:translate(0,0);opacity:0}10%{opacity:1}100%{transform:translate(var(--dx),var(--dy));opacity:0}}
+
+/* ---------- 힙스터 ---------- */
+.bg-hipster{background:radial-gradient(120% 80% at 50% 110%,#5b2b8a 0%,#2a1747 55%,#170d28 100%)}
+.fx-beam{position:absolute;top:-20%;width:38%;height:130%;transform-origin:50% 0;filter:blur(6px);mix-blend-mode:screen;
+  background:linear-gradient(to bottom,rgba(255,220,120,.28),rgba(255,220,120,0) 80%);animation:fxBeamL 4s ease-in-out infinite alternate}
+.fx-beam.r{left:auto;right:4%;background:linear-gradient(to bottom,rgba(120,220,255,.25),rgba(120,220,255,0) 80%);animation-name:fxBeamR;animation-duration:4.6s}
+@keyframes fxBeamL{from{transform:rotate(-22deg)}to{transform:rotate(14deg)}}
+@keyframes fxBeamR{from{transform:rotate(20deg)}to{transform:rotate(-14deg)}}
+.fxs-hipster .fx-mover{animation:fxBob .52s cubic-bezier(.3,0,.4,1) infinite}
+@keyframes fxBob{0%,100%{transform:translateY(0)}35%{transform:translateY(2.2%)}}
+.fx-ring{border-radius:50%;border:2px solid rgba(255,214,120,.9);animation:fxRing .52s ease-out infinite}
+@keyframes fxRing{0%{transform:translate(-50%,-50%) scale(.6);opacity:.9}100%{transform:translate(-50%,-50%) scale(1.9);opacity:0}}
+.fx-lens{border-radius:50%;overflow:hidden}
+.fx-lens i{position:absolute;top:-20%;left:-60%;width:28%;height:140%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent);transform:skewX(-20deg);animation:fxLens 3.2s ease-in-out infinite}
+@keyframes fxLens{0%,62%{left:-60%}82%,100%{left:130%}}
+.fx-note{font-weight:700;text-shadow:0 0 6px rgba(255,255,255,.5);animation:fxNote 2.2s ease-out forwards}
+@keyframes fxNote{0%{transform:translate(-50%,-50%) scale(.4);opacity:0}15%{opacity:1;transform:translate(calc(-50% + var(--dx1)),-120%) scale(1) rotate(var(--r))}
+  100%{transform:translate(calc(-50% + var(--dx2)),-560%) scale(.9) rotate(calc(var(--r) * -1));opacity:0}}
+
+/* ---------- 잭오랜턴 · 드라큘라 ---------- */
+.bg-halloween{background:linear-gradient(to bottom,#1d1838 0%,#3a2552 60%,#5a3657 100%)}
+.bg-dracula{background:linear-gradient(to bottom,#170a1c 0%,#3b0f26 60%,#5a1a2c 100%)}
+.fx-moon{position:absolute;top:7%;left:9%;width:17%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 38% 38%,#fff8dc,#f2dc9a 70%);box-shadow:0 0 30px 8px rgba(255,236,170,.35)}
+.fx-moon.blood{left:auto;right:8%;top:6%;width:26%;background:radial-gradient(circle at 40% 38%,#ffb0a0,#d9333f 60%,#8f1424 100%);box-shadow:0 0 40px 12px rgba(220,50,70,.45);animation:fxHalo2 4s ease-in-out infinite}
+@keyframes fxHalo2{0%,100%{box-shadow:0 0 30px 8px rgba(220,50,70,.35)}50%{box-shadow:0 0 50px 18px rgba(230,60,80,.6)}}
+.fx-glow{border-radius:50%;mix-blend-mode:screen;background:radial-gradient(circle,rgba(255,200,80,.95) 0%,rgba(255,140,30,.55) 35%,rgba(255,110,0,0) 70%);animation:fxFlicker 1.6s steps(1) infinite}
+.fx-glow.soft{background:radial-gradient(circle,rgba(255,150,40,.35) 0%,rgba(255,110,0,0) 70%);animation:fxFlicker2 2.1s ease-in-out infinite}
+@keyframes fxFlicker{0%{opacity:.9}12%{opacity:.55}20%{opacity:1}33%{opacity:.7}41%{opacity:.95}56%{opacity:.6}64%{opacity:.88}80%{opacity:.72}90%{opacity:1}}
+@keyframes fxFlicker2{0%,100%{opacity:.6;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}}
+.fx-candy{border-radius:50%;animation:fxCandy 1.8s ease-out forwards}
+@keyframes fxCandy{0%{transform:translate(-50%,0) scale(.3);opacity:0}20%{opacity:1}100%{transform:translate(calc(-50% + var(--dx)),-420%) scale(1);opacity:0}}
+.fxs-dracula .fx-mover{animation:fxHover 3.4s ease-in-out infinite}
+@keyframes fxHover{0%,100%{transform:translateY(0)}50%{transform:translateY(-4%)}}
+.fx-shadow{position:absolute;left:50%;bottom:3%;width:55%;height:5%;border-radius:50%;background:rgba(0,0,0,.4);filter:blur(3px);transform:translateX(-50%);animation:fxShadow 3.4s ease-in-out infinite;z-index:0}
+@keyframes fxShadow{0%,100%{transform:translateX(-50%) scale(1);opacity:.55}50%{transform:translateX(-50%) scale(.8);opacity:.3}}
+.fx-fang{transform:translate(-50%,-50%) scale(0);animation:fxTw 2.6s ease-in-out infinite}
+.fx-fang::before{background:#fff}
+
+/* ===== 공통 파츠 (나머지 전설용) ===== */
+.fx-mv{animation:fxMv var(--t,3s) var(--ease,linear) forwards}
+@keyframes fxMv{0%{transform:translate(-50%,-50%) rotate(0) scale(var(--s0,1));opacity:0}
+  12%{opacity:var(--o,1)}75%{opacity:var(--o,1)}
+  100%{transform:translate(calc(-50% + var(--dx,0px)),calc(-50% + var(--dy,0px))) rotate(var(--rot,0deg)) scale(var(--s1,1));opacity:0}}
+.sh-snow{border-radius:50%;background:#fff;box-shadow:0 0 4px rgba(255,255,255,.9)}
+.sh-petal{border-radius:70% 0 70% 0;background:var(--pc,#ffc4d6)}
+.sh-leaf{background:var(--pc,#f4c430);clip-path:polygon(50% 100%,46% 60%,0 22%,14% 6%,50% 0,86% 6%,100% 22%,54% 60%)}
+.sh-coin{border-radius:50%;background:radial-gradient(circle,transparent 0 16%,#f6c445 18%,#e0a52a 62%,#b9801a 100%)}
+.sh-env{border-radius:2px;background:linear-gradient(#d8323f 0 58%,#f2c14e 58% 70%,#d8323f 70%)}
+.sh-drop{border-radius:50% 50% 50% 50%/62% 62% 38% 38%;background:linear-gradient(#e6f7ff,#7fcaf2)}
+.sh-sparkline{height:2px!important;border-radius:2px;background:linear-gradient(90deg,#fff6c0,#ff9a2b);box-shadow:0 0 4px #ffb347}
+.sh-smoke{border-radius:50%;background:radial-gradient(circle,var(--pc,rgba(210,210,210,.75)),rgba(200,200,200,0) 70%)}
+.sh-grain{border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3b8,#f0b93a 70%);box-shadow:0 0 5px rgba(255,210,90,.9)}
+.sh-gift{border-radius:2px;background:linear-gradient(90deg,transparent 42%,#ffd54a 42% 58%,transparent 58%),linear-gradient(transparent 42%,#ffd54a 42% 58%,transparent 58%),var(--pc,#e64a5c)}
+.sh-ink{font-family:"Nanum Brush Script","Noto Serif KR",serif;color:rgba(40,30,25,.38);line-height:1}
+.sh-swoosh{border-top:2px solid rgba(255,255,255,.85);border-radius:50%;height:auto!important;aspect-ratio:3/1}
+.sh-streak{height:3px!important;border-radius:3px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.9))}
+.sh-cloud{border-radius:50px;background:rgba(255,255,255,.85);filter:blur(1px);box-shadow:20px -6px 0 2px rgba(255,255,255,.85),-16px -3px 0 -1px rgba(255,255,255,.85)}
+.fx-shout{position:absolute;font-family:var(--font);color:var(--c,#fff5d6);font-size:clamp(18px,5.4vw,27px);white-space:nowrap;z-index:6;
+  text-shadow:0 2px 0 var(--sh,#b5651d),0 0 10px var(--gl,rgba(255,200,90,.8));transform:translate(-50%,-50%) scale(0);animation:fxKya var(--t,3.2s) ease-in-out infinite;animation-delay:var(--dl,0s)}
+.fx-ripple{border-radius:50%;border:2px solid rgba(255,255,255,.85);animation:fxRipple 1.8s ease-out infinite}
+@keyframes fxRipple{0%{transform:translate(-50%,-50%) scale(.2,.08);opacity:1}100%{transform:translate(-50%,-50%) scale(1,.38);opacity:0}}
+.fx-bulb{border-radius:50%;background:var(--pc);box-shadow:0 0 6px 2px var(--pc);animation:fxBulb var(--t,1.4s) ease-in-out infinite;animation-delay:var(--dl,0s)}
+@keyframes fxBulb{0%,100%{opacity:.25;transform:translate(-50%,-50%) scale(.7)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}}
+.fx-shoot{position:absolute;top:10%;left:70%;width:26%;height:2px;background:linear-gradient(90deg,#fff,rgba(255,255,255,0));transform:rotate(-28deg);opacity:0;animation:fxShoot 4.5s ease-in infinite 1s;z-index:0}
+@keyframes fxShoot{0%,70%{transform:translate(0,0) rotate(-28deg);opacity:0}74%{opacity:1}90%,100%{transform:translate(-160%,90%) rotate(-28deg);opacity:0}}
+.fx-bfly{position:absolute;width:12%;aspect-ratio:1;z-index:4}
+.fx-bfly svg{width:100%;height:100%;display:block;overflow:visible}
+.fx-bfly .wl{transform-origin:50% 50%;animation:fxBfly .18s ease-in-out infinite alternate}
+@keyframes fxBfly{from{transform:scaleX(1)}to{transform:scaleX(.25)}}
+.fx-bfly.f1{animation:fxFlut1 6s ease-in-out infinite}
+.fx-bfly.f2{width:9%;animation:fxFlut2 7.5s ease-in-out infinite}
+@keyframes fxFlut1{0%,100%{left:62%;top:38%}25%{left:80%;top:26%}50%{left:88%;top:44%}75%{left:70%;top:52%}}
+@keyframes fxFlut2{0%,100%{left:12%;top:30%}30%{left:24%;top:18%}60%{left:6%;top:44%}}
+.fx-torch{border-radius:50%;mix-blend-mode:screen;background:radial-gradient(circle,rgba(255,240,170,.95) 0%,rgba(255,200,80,.5) 35%,rgba(255,180,60,0) 70%);animation:fxFlicker2 1.8s ease-in-out infinite}
+.fx-sunglow{border-radius:50%;background:radial-gradient(circle,rgba(255,255,230,.9),rgba(255,240,170,0) 70%);animation:fxHalo 3s ease-in-out infinite}
+
+/* 캐릭터 움직임 */
+.fxs-dolsoe .fx-mover{animation:fxTrudge 1s ease-in-out infinite}
+@keyframes fxTrudge{0%,100%{transform:translateY(0) rotate(-1deg)}25%{transform:translateY(1.6%) rotate(0)}50%{transform:translateY(0) rotate(1deg)}75%{transform:translateY(1.6%) rotate(0)}}
+.fxs-seonbi .fx-mover,.fxs-doryeong .fx-mover,.fxs-premier .fx-mover,.fxs-assi .fx-mover{animation:fxSway 3.6s ease-in-out infinite}
+@keyframes fxSway{0%,100%{transform:rotate(-1.4deg)}50%{transform:rotate(1.4deg)}}
+.fxs-army .fx-mover{animation:fxSnap 2.6s ease-out infinite}
+@keyframes fxSnap{0%,100%{transform:translateY(0) scale(1)}6%{transform:translateY(-2.5%) scale(1.03)}14%{transform:translateY(0) scale(1)}}
+.fxs-watermelon .fx-mover{animation:fxMunch 1.2s ease-in-out infinite}
+@keyframes fxMunch{0%,50%,100%{transform:scale(1,1)}10%{transform:scale(1.015,.975)}20%{transform:scale(1,1)}30%{transform:scale(1.015,.975)}}
+.fxs-hero .fx-mover{animation:fxHeroFly 2.4s ease-in-out infinite}
+@keyframes fxHeroFly{0%,100%{transform:translate(0,0) rotate(0)}50%{transform:translate(-2%,-5%) rotate(-2deg)}}
+.fxs-buster .fx-mover{animation:fxRumble .16s steps(2) infinite}
+@keyframes fxRumble{0%{transform:translate(0,0)}50%{transform:translate(.4%,-.5%)}100%{transform:translate(-.4%,0)}}
+.fxs-space .fx-mover{animation:fxFloat 6s ease-in-out infinite}
+.fxs-sebae .fx-mover{animation:fxBow 3s ease-in-out infinite}
+.fxs-santa .fx-mover{animation:fxJingle .9s ease-in-out infinite}
+@keyframes fxJingle{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-1.8%) rotate(1deg)}}
+.fxs-snowman .fx-mover{animation:fxRock 2.8s ease-in-out infinite}
+@keyframes fxRock{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+
+/* 배경 */
+.bg-dolsoe{background:linear-gradient(to bottom,#ffe2a8 0%,#f2b06a 55%,#9c6a3a 100%)}
+.bg-seonbi{background:radial-gradient(110% 90% at 50% 30%,#fbf4e3 0%,#ecdfc2 70%,#d9c59c 100%)}
+.bg-doryeong{background:linear-gradient(to bottom,#dff5e8 0%,#a9dcc2 60%,#68b495 100%)}
+.bg-assi{background:radial-gradient(110% 90% at 50% 30%,#ffe9f1 0%,#f7b9d0 60%,#d886a9 100%)}
+.bg-liberty{background:linear-gradient(to bottom,#1f3870 0%,#4f7cc0 55%,#f4c879 100%)}
+.bg-army{background:radial-gradient(110% 90% at 50% 30%,#8f9f5e 0%,#56652f 60%,#2d361b 100%)}
+.bg-watermelon{background:linear-gradient(to bottom,#6ccdfb 0%,#c5efff 58%,#fff1b8 100%)}
+.bg-xmas{background:linear-gradient(to bottom,#0e1d3c 0%,#1f3d6e 60%,#35628f 100%)}
+.bg-premier{background:radial-gradient(110% 90% at 50% 30%,#3e7468 0%,#22463f 65%,#132a26 100%)}
+.bg-hero{background:linear-gradient(to bottom,#2a7be6 0%,#79c1ff 60%,#d3efff 100%)}
+.bg-buster{background:radial-gradient(110% 90% at 50% 40%,#5d4b3a 0%,#2b221b 65%,#141009 100%)}
+.bg-space{background:radial-gradient(110% 90% at 50% 40%,#2b2264 0%,#120f34 60%,#05040f 100%)}
+.bg-sebae{background:radial-gradient(110% 90% at 50% 30%,#ffeadb 0%,#f5b39c 62%,#d6716a 100%)}
+.bg-santa{background:linear-gradient(to bottom,#1b2950 0%,#34477b 60%,#7086ba 100%)}
+.bg-snowman{background:linear-gradient(to bottom,#6f9ad0 0%,#acc9ec 60%,#e3efff 100%)}
+
+/* ---------- 불멍 (이삭이) ---------- */
+.bg-campfire{background:radial-gradient(90% 70% at 75% 85%,#6b3a1e 0%,#2a2340 55%,#141428 100%)}
+.fx-firepiece{position:absolute;inset:0;z-index:2;animation:fxFire .5s ease-in-out infinite alternate}
+.fx-firepiece>img{position:absolute;inset:0;width:100%;height:100%;max-width:none}
+@keyframes fxFire{0%{transform:scale(1,1) skewX(0)}30%{transform:scale(.96,1.07) skewX(-3deg)}60%{transform:scale(1.03,.95) skewX(2deg)}100%{transform:scale(.98,1.05) skewX(-1deg)}}
+.fx-warm{position:absolute;inset:0;z-index:3;mix-blend-mode:soft-light;pointer-events:none;
+  background:radial-gradient(60% 50% at 75% 83%,rgba(255,170,70,.9),rgba(255,140,40,0) 70%);animation:fxFlicker 1.4s steps(1) infinite}
+.sh-ember{border-radius:50%;background:#ffcf6a;box-shadow:0 0 4px 1px #ff8a2b}
+.fx-steam{border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.8),rgba(255,255,255,0) 70%)}
+
+/* ---------- 풍선 둥실 (새싹이) ---------- */
+.bg-balloon{background:linear-gradient(to bottom,#8fd0ff 0%,#c9ecff 60%,#f4fbff 100%)}
+.fxs-balloon .fx-mover{animation:fxSwing 3.6s ease-in-out infinite;transform-origin:31% 14%}
+@keyframes fxSwing{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-5%) rotate(3deg)}}
+
+/* ===== 일반 도감 공통 (gen) ===== */
+.fx-piece{position:absolute;inset:0;z-index:2}
+.fx-piece>img{position:absolute;inset:0;width:100%;height:100%;max-width:none}
+@keyframes pcSpin{to{transform:rotate(360deg)}}
+@keyframes pcWiggle{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+@keyframes pcPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.22)}}
+@keyframes pcShake{0%,100%{transform:rotate(0)}20%{transform:rotate(-9deg) translateX(-1%)}40%{transform:rotate(8deg) translateX(1%)}60%{transform:rotate(-7deg)}80%{transform:rotate(6deg)}}
+@keyframes pcBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4%)}}
+@keyframes pcStretch{0%,60%,100%{transform:scale(1,1)}20%{transform:scale(.97,1.07)}35%{transform:scale(1.02,.98)}}
+@keyframes pcWave{0%,100%{transform:skewY(-5deg) scaleX(1)}50%{transform:skewY(5deg) scaleX(.94)}}
+@keyframes pcBounce{0%,100%{transform:translateY(0);animation-timing-function:cubic-bezier(.2,.7,.4,1)}50%{transform:translateY(-16%);animation-timing-function:cubic-bezier(.6,0,.8,.3)}}
+@keyframes pcTilt{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+
+@keyframes mvBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5%)}}
+@keyframes mvSway{0%,100%{transform:rotate(-1.8deg)}50%{transform:rotate(1.8deg)}}
+@keyframes mvBounce{0%,100%{transform:translateY(0) scale(1,1)}15%{transform:translateY(0) scale(1.04,.95)}45%{transform:translateY(-5%) scale(.98,1.03)}70%{transform:translateY(0) scale(1.02,.98)}}
+@keyframes mvRun{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-3%) rotate(1deg)}}
+@keyframes mvGlide{0%,100%{transform:translate(-2%,0) rotate(-1deg)}50%{transform:translate(2%,-1.5%) rotate(1deg)}}
+@keyframes mvHop{0%,55%,100%{transform:translateY(0) rotate(0)}70%{transform:translateY(-9%) rotate(-5deg)}85%{transform:translateY(-2%) rotate(2deg)}}
+@keyframes mvTremble{0%,100%{transform:translate(0,0)}25%{transform:translate(-.6%,.3%)}50%{transform:translate(.6%,-.3%)}75%{transform:translate(-.4%,-.3%)}}
+@keyframes mvNod{0%,100%{transform:rotate(0)}60%{transform:rotate(5deg) translateY(1.5%)}68%{transform:rotate(-1deg)}}
+@keyframes mvGroove{0%,100%{transform:translateY(0) rotate(-2deg)}25%{transform:translateY(-2%) rotate(0)}50%{transform:translateY(0) rotate(2deg)}75%{transform:translateY(-2%) rotate(0)}}
+@keyframes mvRock{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+@keyframes mvFloat{0%,100%{transform:translate(0,0) rotate(-2deg)}50%{transform:translate(1%,-5%) rotate(2deg)}}
+@keyframes mvSquish{0%,100%{transform:scale(1,1)}50%{transform:scale(1.03,.97)}}
+@keyframes mvStomp{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-3%) rotate(-2deg)}50%{transform:translateY(0) rotate(0)}75%{transform:translateY(-3%) rotate(2deg)}}
+@keyframes mvDive{0%,100%{transform:rotate(-3deg) translateX(-1%)}50%{transform:rotate(2deg) translateX(1%)}}
+@keyframes mvBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.015,1.025)}}
+
+.sh-heart{background:var(--pc,#ff5f86);clip-path:polygon(50% 100%,6% 52%,0 30%,8% 10%,28% 2%,50% 16%,72% 2%,92% 10%,100% 30%,94% 52%)}
+.sh-rain{border-radius:2px;background:linear-gradient(rgba(255,255,255,0),rgba(255,255,255,.9))}
+.sh-pop{border-radius:45% 55% 50% 50%;background:radial-gradient(circle at 40% 40%,#fffdf0,#ffe9a8 70%,#f2c75c)}
+.sh-txt{font-family:var(--font);color:var(--pc,#4a5a8f);line-height:1;white-space:nowrap;text-shadow:0 1px 0 rgba(255,255,255,.6)}
+.sh-leafg{background:var(--pc,#6cc070);border-radius:0 80% 0 80%}
+.sh-maple{background:var(--pc,#e8502e);clip-path:polygon(50% 0,60% 30%,85% 18%,75% 45%,100% 50%,72% 62%,80% 90%,55% 75%,50% 100%,45% 75%,20% 90%,28% 62%,0 50%,25% 45%,15% 18%,40% 30%)}
+.sh-dot{border-radius:50%;background:var(--pc,#fff)}
+.sh-flake{border-radius:2px;background:var(--pc,#d8322a)}
+.fx-ring2{border-radius:50%;border:2px solid var(--pc,rgba(255,255,255,.9));animation:fxRing var(--t,1.2s) ease-out infinite;animation-delay:var(--dl,0s)}
+.fx-waves{position:absolute;left:-10%;right:-10%;bottom:-3%;height:14%;z-index:4;opacity:.9;
+  background:radial-gradient(circle at 15px -6px,transparent 14px,#3d8fd6 15px) 0 0/30px 100% repeat-x;animation:fxWaves 3s linear infinite}
+.fx-waves.w2{bottom:-6%;opacity:.7;background:radial-gradient(circle at 15px -6px,transparent 14px,#2a6fb3 15px) 0 0/30px 100% repeat-x;animation-duration:4.5s;animation-direction:reverse}
+@keyframes fxWaves{to{background-position:30px 0}}
+.fx-flyer{position:absolute;z-index:2;aspect-ratio:2/1}
+.fx-flyer svg{width:100%;height:100%;display:block;overflow:visible}
+.fx-flyer .w{transform-origin:50% 50%;animation:fxFlap .3s ease-in-out infinite alternate}
+.fx-flyer .rot{transform-box:fill-box;transform-origin:center;animation:fxRotor .08s linear infinite}
+@keyframes fxRotor{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.2)}}
+@keyframes flyLR{0%{left:-25%}100%{left:110%}}
+@keyframes flyRL{0%{left:110%}100%{left:-25%}}
+@keyframes flyBob{0%,100%{margin-top:0}50%{margin-top:-4%}}
+@keyframes droneLoop{0%,100%{left:12%;top:16%}25%{left:60%;top:10%}50%{left:66%;top:22%}75%{left:20%;top:26%}}
+
+/* ── 도감 카드 팝업 (dxc): 등급별 테두리 · 기울이기 · 뒤집기 ── */
+.dxc-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 4px 0 2px; }
+.dxc { --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 50%; width: min(78vw, 300px, calc((100dvh - 230px) * 63 / 88)); aspect-ratio: 63 / 88; perspective: 900px; cursor: pointer; touch-action: none; outline: none; animation: dxcIn .5s cubic-bezier(.2, 1.3, .4, 1) both; -webkit-user-select: none; user-select: none; }
+@keyframes dxcIn { from { transform: scale(.7) translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.dxc:focus-visible .dxc-face { box-shadow: 0 0 0 3px var(--accent), 0 16px 34px rgba(14, 26, 54, .35); }
+.dxc-tilt { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transform: rotateX(var(--rx)) rotateY(var(--ry)); transition: transform .08s linear; }
+.dxc-flip { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.3, 1.2, .4, 1); }
+.dxc.flipped .dxc-flip { transform: rotateY(180deg); }
+.dxc-face { position: absolute; inset: 0; border-radius: 16px; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden; box-shadow: 0 16px 34px rgba(14, 26, 54, .35); }
+.dxc-face.back { transform: rotateY(180deg); }
+.dxc[data-kind="legend"] { --f1: #fff1b8; --f2: #d9a640; --f3: #fff8d8; --f4: #a8741c; --ink: #3a2706; --paper: #fffaf0; --plate: #2b1d07; --plateFg: #ffe9a8; --chip: #3a2706; --chipFg: #ffe08a; --emb: #7a5410; }
+.dxc[data-kind="isak"] { --f1: #9fe3c6; --f2: #2f9c78; --f3: #c9f2e0; --f4: #17694f; --ink: #0f3a2c; --paper: #f3fbf7; --plate: #14523e; --plateFg: #e6fff4; --chip: #14523e; --chipFg: #c9f2e0; --emb: #e6fff4; }
+.dxc[data-kind="sprout"] { --f1: #d9f29a; --f2: #7cbf45; --f3: #efffcf; --f4: #4c8a26; --ink: #2a4413; --paper: #fbfdf2; --plate: #3f6f1f; --plateFg: #f4ffdc; --chip: #3f6f1f; --chipFg: #e6f7c0; --emb: #f4ffdc; }
+.dxc-frame { position: absolute; inset: 0; padding: 9px; background: linear-gradient(135deg, var(--f1) 0%, var(--f2) 28%, var(--f3) 50%, var(--f2) 72%, var(--f4) 100%); }
+.dxc-frame::before { content: ""; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: soft-light; opacity: .9; background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .9) calc(var(--mx) - 6%), transparent calc(var(--mx) + 12%)); }
+.dxc[data-kind="legend"] .dxc-frame::after { content: ""; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: color-dodge; opacity: .55;
+  background: repeating-linear-gradient(120deg, #ff7ab6 0%, #ffe36e 6%, #8affc1 12%, #7ad7ff 18%, #b48bff 24%, #ff7ab6 30%); background-size: 300% 300%; background-position: var(--mx) var(--my); animation: dxcHolo 6s linear infinite; }
+@keyframes dxcHolo { from { filter: hue-rotate(0); } to { filter: hue-rotate(360deg); } }
+.dxc-inner { position: relative; z-index: 1; height: 100%; border-radius: 9px; background: var(--paper); display: flex; flex-direction: column; padding: 8px 8px 7px; gap: 6px; color: var(--ink); }
+.dxc-top { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 800; letter-spacing: .02em; font-variant-numeric: tabular-nums; padding: 0 2px; }
+.dxc-chip { background: var(--chip); color: var(--chipFg); border-radius: 999px; padding: 2px 8px; font-size: 10.5px; letter-spacing: .04em; }
+.dxc-chip i { font-style: normal; margin-left: 3px; letter-spacing: 0; }
+.dxc-mid { position: relative; width: 30px; height: 16px; }
+.dxc-emb { position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; transform: translate(-50%, -50%); border-radius: 50%; background: linear-gradient(135deg, var(--f1), var(--f2)); box-shadow: 0 0 0 2px var(--paper); display: grid; place-items: center; color: var(--emb); }
+.dxc-emb svg { width: 18px; height: 18px; }
+.dxc-win { position: relative; flex: 1; min-height: 0; border-radius: 8px; overflow: hidden; box-shadow: inset 0 0 0 2px var(--f2); }
+.dxc-stage { position: absolute; inset: 0; }
+.dxc-plate { background: var(--plate); color: var(--plateFg); border-radius: 7px; padding: 5px 10px 6px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.dxc-pn { font-size: 20px; font-weight: 850; letter-spacing: -.02em; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dxc-pk { font-size: 10.5px; font-weight: 700; opacity: .8; white-space: nowrap; }
+.dxc-info { display: grid; grid-template-columns: auto minmax(0, 1fr); border: 1px solid color-mix(in srgb, var(--f2) 55%, transparent); border-radius: 7px; font-size: 10.5px; line-height: 1.35; }
+.dxc-info > div { padding: 5px 8px; min-width: 0; }
+.dxc-info > div + div { border-left: 1px solid color-mix(in srgb, var(--f2) 55%, transparent); }
+.dxc-info small { display: block; font-size: 9px; font-weight: 700; opacity: .65; letter-spacing: .04em; }
+.dxc-info b { font-weight: 700; }
+.dxc-foot { display: flex; justify-content: space-between; font-size: 8.5px; font-weight: 700; letter-spacing: .08em; opacity: .55; padding: 0 2px; font-variant-numeric: tabular-nums; }
+.dxc-glare { position: absolute; inset: 0; z-index: 5; pointer-events: none; border-radius: 16px; mix-blend-mode: overlay; background: radial-gradient(circle at var(--mx) var(--my), rgba(255, 255, 255, .75), rgba(255, 255, 255, 0) 45%); opacity: var(--glare, .35); }
+.dxc-face.back .dxc-inner { align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 18px 16px;
+  background: radial-gradient(circle at 50% 38%, var(--paper) 0 34%, transparent 35%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28'%3E%3Cpath d='M14 22V9' stroke='%23000' stroke-opacity='.07' stroke-width='1.5' fill='none'/%3E%3Cellipse cx='11.5' cy='12' rx='2' ry='3' fill='%23000' fill-opacity='.07' transform='rotate(-25 11.5 12)'/%3E%3Cellipse cx='16.5' cy='12' rx='2' ry='3' fill='%23000' fill-opacity='.07' transform='rotate(25 16.5 12)'/%3E%3Cellipse cx='11.5' cy='16.5' rx='2' ry='3' fill='%23000' fill-opacity='.07' transform='rotate(-25 11.5 16.5)'/%3E%3Cellipse cx='16.5' cy='16.5' rx='2' ry='3' fill='%23000' fill-opacity='.07' transform='rotate(25 16.5 16.5)'/%3E%3C/svg%3E"), var(--paper); }
+.dxc-bigemb { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--f1), var(--f2), var(--f4)); display: grid; place-items: center; box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--f2); color: var(--emb); }
+.dxc-bigemb svg { width: 36px; height: 36px; }
+.dxc-bno { font-size: 11px; font-weight: 800; letter-spacing: .06em; opacity: .6; font-variant-numeric: tabular-nums; }
+.dxc-bnm { font-size: 24px; font-weight: 850; letter-spacing: -.02em; line-height: 1.15; }
+.dxc-q { font-size: 13.5px; line-height: 1.6; font-weight: 600; max-width: 22ch; text-wrap: balance; }
+.dxc-bmeta { font-size: 11px; line-height: 1.6; opacity: .75; }
+.dxc-turn { position: absolute; bottom: 10px; left: 0; right: 0; font-size: 10px; font-weight: 700; opacity: .45; letter-spacing: .04em; }
+.dxc-hint { margin: 0; font-size: calc(12px * var(--s)); color: var(--faint); text-align: center; }
+.dxc-gy { font: inherit; font-size: calc(13px * var(--s)); font-weight: 700; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+.dxc-gy[aria-pressed="true"] { background: #2f9c78; border-color: #2f9c78; color: #fff; }
+.dxc-msg { margin: 0; font-size: calc(12px * var(--s)); color: var(--sub); text-align: center; max-width: 34ch; line-height: 1.5; }
+.dxc-wrap .fx-shout, .dxc-wrap .fx-kya, .dxc-wrap .sh-txt { font-family: var(--font); font-weight: 850; }

@@ -309,6 +309,7 @@ function openSheet(app, kind, arg) {
   renderSheet(app);
 }
 function renderSheet(app) {
+  dexCardStop(); // 움직이는 도감 카드 정리
   const old = $(".sheet", app); if (old && S.sheet) S.sheet.scroll = old.scrollTop;
   $$(".dim, .sheet", app).forEach((n) => n.remove());
   if (!S.sheet) return;
@@ -318,6 +319,7 @@ function renderSheet(app) {
   sh.innerHTML = k === "share" ? shareSheet(S.sheet.arg) : k === "dex" ? dexSheet(S.sheet.arg) : k.startsWith("team") || k === "invite" ? teamSheet(k, S.sheet.arg) : k.startsWith("sync") ? syncSheet(k) : k === "statDay" ? statDaySheet(S.sheet.arg) : addSheet();
   const keep = S.sheet.scroll || 0; requestAnimationFrame(() => { sh.scrollTop = keep; });
   app.append(dim, sh);
+  if (k === "dex") dexCardMount(sh);
 }
 function closeSheet(app) { S.sheet = null; S.draft = null; renderSheet(app); }
 function toast(app, msg) {
@@ -475,15 +477,15 @@ const DEX = {
     { id: "i-mag", no: 8, kind: "isak", img: "magnifier", name: "오탈자 검사" },
     { id: "i-mega", no: 9, kind: "isak", img: "megaphone", name: "공지 좀 읽어라" },
     { id: "i-basket", no: 10, kind: "isak", img: "basket", name: "풍년" },
-    { id: "i-center", no: 11, kind: "isak", img: "center", name: "센터", line: "선글라스 끼고 무대 한가운데, 오늘의 주인공." },
-    { id: "i-kkeok", no: 12, kind: "isak", img: "kkeok", name: "꺾기 장인", line: "반짝이 정장에 마이크 하나면 어디든 무대." },
-    { id: "i-band", no: 13, kind: "isak", img: "band", name: "밴드부", line: "점심시간엔 베이스 둥둥, 오늘도 합주 중." },
-    { id: "i-drib", no: 14, kind: "isak", img: "drib", name: "드리블러", line: "기사 사이를 요리조리, 공은 절대 안 뺏겨요." },
+    { id: "i-center", no: 11, kind: "isak", img: "center", name: "칼군무", line: "선글라스 끼고 무대 한가운데, 오늘의 주인공." },
+    { id: "i-kkeok", no: 12, kind: "isak", img: "kkeok", name: "행사장인", line: "반짝이 정장에 마이크 하나면 어디든 무대." },
+    { id: "i-band", no: 13, kind: "isak", img: "band", name: "락앤롤", line: "점심시간엔 베이스 둥둥, 오늘도 합주 중." },
+    { id: "i-drib", no: 14, kind: "isak", img: "drib", name: "내가 메날두야말", line: "기사 사이를 요리조리, 공은 절대 안 뺏겨요." },
     { id: "i-bat", no: 15, kind: "isak", img: "bat", name: "4번 타자", line: "오늘의 헤드라인은 내가 친다, 한 방 있는 이삭이." },
     { id: "i-kick", no: 16, kind: "isak", img: "kick", name: "킥플립", line: "보드 위에서도 균형 잡고, 뉴스도 놓치지 않아요." },
     { id: "i-hike", no: 17, kind: "isak", img: "hike", name: "정상 등반", line: "주말엔 산으로! 정상에서 읽는 브리핑이 제일 맛있어요." },
     { id: "i-lab", no: 18, kind: "isak", img: "lab", name: "관찰 일지", line: "플라스크 속 변화를 하나도 놓치지 않고 기록해요." },
-    { id: "i-ai", no: 19, kind: "isak", img: "ai", name: "딥러닝", line: "방석 깔고 앉아 AI랑 같이 농업의 미래를 공부해요." },
+    { id: "i-ai", no: 19, kind: "isak", img: "ai", name: "AI", line: "방석 깔고 앉아 AI랑 같이 농업의 미래를 공부해요." },
     { id: "i-drone", no: 20, kind: "isak", img: "drone", name: "드론 파일럿", line: "논밭 위를 한 바퀴, 하늘에서 보는 농사 소식." },
     { id: "i-paper", no: 21, kind: "isak", img: "paper", name: "논문 마감", line: "마감 전날 밤, 커피 한 잔과 서류 더미 사이에서." },
     { id: "i-cow", no: 22, kind: "isak", img: "cow", name: "얼룩이", line: "젖소 옷 입고 음메~ 축산 소식은 내가 먼저." },
@@ -693,8 +695,8 @@ function dexTabsHTML() {
 function dexSheet(id) {
   const x = DEX.items.find((y) => y.id === id), o = owned(x), lg = x.kind === "legend";
   return `<div class="grab"></div><div class="sh-head"><h2>${o ? esc(x.name) : lg ? "아직 못 만난 전설" : "아직 못 만난 친구"}</h2><button type="button" class="x" data-close>닫기</button></div>
-    <div class="dx-big${x.kind === "sprout" ? " spr" : ""}${lg ? " lg" : ""}">${dexArt(x, true)}</div>
-    ${o ? `<p class="dx-line">${esc(x.line || (lg ? `‘${x.cond}’ 기록으로 깨어난 전설이에요.` : "출석으로 만난 친구예요."))}</p><div class="dx-meta">${dexNo(x)} · ${x.got}에 만났어요</div>`
+    ${o && x.img ? dexCardHTML(x) : `<div class="dx-big${x.kind === "sprout" ? " spr" : ""}${lg ? " lg" : ""}">${dexArt(x, true)}</div>`}
+    ${o ? (x.img ? "" : `<p class="dx-line">${esc(x.line || (lg ? `‘${x.cond}’ 기록으로 깨어난 전설이에요.` : "출석으로 만난 친구예요."))}</p><div class="dx-meta">${dexNo(x)} · ${x.got}에 만났어요</div>`)
       : lg && goldState(x) ? `<p class="dx-line">${goldState(x) === "hatching" ? `황금알을 품고 있어요. 출석 ${DEX.goldEgg.need - DEX.goldEgg.done}일 뒤 깨어나요.` : "황금알을 받았어요. 지금 품는 알이 깨어나면 이어서 품어요."}</p>`
       : lg ? `<p class="dx-line">${x.hidden ? "어떻게 얻는지는 비밀이에요. 꾸준히 읽다 보면 만날 수 있어요." : `조건: ${esc(x.cond)}. 채우면 누구인지 공개돼요.`}</p>${x.goal ? `<div class="dx-p big"><i style="width:${Math.round(x.now / x.goal * 100)}%"></i></div><div class="dx-meta">지금 ${x.now} / ${x.goal}</div>` : ""}`
       : `<p class="dx-line">출석 5일마다 랜덤으로 와요. 다음 친구까지 출석 ${5 - (DEX.days % 5)}일 남았어요.</p>`}`;

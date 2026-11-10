@@ -2,6 +2,7 @@
 
 - 글꼴: Pretendard 가변 글꼴에서 앱에 쓰는 글자 + 자주 쓰는 한글 2,350자만 잘라 woff2로 저장
 - 그림: tools/imgs.json(웹 이미지 data URI)을 public/assets/img/*.webp 파일로 풀고, app.js의 IMG 표에 경로를 넣음
+- 움직이는 도감: src/dexfx.js · src/dexfx.css를 app.js · app.css 뒤에 붙임
 - 페이지: src/index.html(모바일), src/pc.html(PC)을 그대로 복사
 
 실행: python3 tools/build.py   (pyftsubset 필요: pip install fonttools brotli)
@@ -44,8 +45,8 @@ for key, uri in imgs.items():
     open(os.path.join(A, "img", fn), "wb").write(base64.b64decode(data))
     paths[key] = f"assets/img/{fn}"
 
-css = open(os.path.join(SRC, "app.css")).read()
-js = open(os.path.join(SRC, "app.js")).read()
+css = open(os.path.join(SRC, "app.css")).read() + "\n" + open(os.path.join(SRC, "dexfx.css")).read()
+js = open(os.path.join(SRC, "app.js")).read() + "\n" + open(os.path.join(SRC, "dexfx.js")).read()  # 움직이는 도감 카드
 pages = {n: open(os.path.join(SRC, n)).read() for n in ("index.html", "pc.html")}
 
 # 글꼴

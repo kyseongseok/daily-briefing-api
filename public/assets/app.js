@@ -1570,11 +1570,10 @@ const DexFx = (() => {
       const cols = ["#ffe066", "#ff6b8a", "#6be0ff", "#ffffff", "#9cff7a"];
       c.every(160, () => { const p = c.el("fx-p fx-conf"); p.style.background = pick(cols); p.style.left = rnd(0, 100) + "%"; p.style.top = "-4%"; p.style.setProperty("--t", rnd(2.4, 3.6) + "s"); p.style.setProperty("--dx", rnd(-40, 40) + "px"); p.style.setProperty("--dy", rnd(320, 420) + "px"); c.spawn(c.sky, p, 3700); });
     },
-    /* 전하: 얼굴 뒤로 천천히 도는 황금 후광 + 은은하게 떠오르는 금빛 */
+    /* 전하: 얼굴 뒤로 은은하게 퍼지는 황금빛 고리 + 은은하게 떠오르는 금빛 */
     king(c) {
       c.put(c.back, c.el("fx-c fx-halo"), 92, 108, 230);
-      c.put(c.back, c.el("fx-c fx-rays"), 92, 108, 300);
-      c.put(c.back, c.el("fx-c fx-rays r2"), 92, 108, 300);
+      [0, 1.2, 2.4].forEach((dl) => { const a = c.put(c.back, c.el("fx-c fx-aura"), 92, 108, 210); a.style.animationDelay = dl + "s"; });
       c.every(260, () => { const m = c.el("fx-p fx-mote"); const s = rnd(2, 4.5); m.style.width = m.style.height = s + "px"; m.style.left = rnd(5, 95) + "%"; m.style.top = rnd(55, 100) + "%"; m.style.setProperty("--t", rnd(3, 4.5) + "s"); m.style.setProperty("--dx", rnd(-20, 20) + "px"); m.style.setProperty("--dy", rnd(-120, -70) + "px"); c.spawn(c.sky, m, 4600); });
     },
     /* 캬~: 잔이 살짝 들렸다 놓임 + 기포 + 거품 + 커졌다 작아지는 홍조 + "캬~!" */
@@ -1597,7 +1596,7 @@ const DexFx = (() => {
     },
     /* 새해 복: 떠오르는 해 + 날아가는 까치 + 꾸벅 인사 + 인사말 */
     newyear(c) {
-      const sun = c.el("fx-sunrise"); sun.innerHTML = '<div class="fx-c fx-sunrays" style="left:50%;top:50%;width:260%;aspect-ratio:1"></div><div class="fx-sun" style="position:absolute;inset:0"></div>'; c.sky.appendChild(sun);
+      const sun = c.el("fx-sunrise"); sun.innerHTML = '<div class="fx-sun" style="position:absolute;inset:0"></div>'; c.sky.appendChild(sun);
       const g = c.el("fx-greet"); g.textContent = "새해 복 많이 받으세요"; c.sky.appendChild(g);
       ["m1", "m2"].forEach((k) => c.top.appendChild(c.el("fx-magpie " + k, MAGPIE)));
     },
@@ -1698,9 +1697,9 @@ const DexFx = (() => {
       emit(c, c.front, 300, { cls: "sh-petal", size: [5, 8], x: [110, 170], y: [105, 158], px: true, dx: [-30, 30], dy: [30, 80], rot: [180, 480], t: [2.2, 3], pc: ["#ffc4d6", "#fff2a8", "#ffffff", "#ffd8b0"] });
       [[40, 124], [98, 124]].forEach((p) => c.put(c.front, c.el("fx-c fx-blush"), p[0], p[1], 28, 18));
     },
-    /* 자유의 이삭: 횃불처럼 빛나는 볏단 + 뒤로 퍼지는 빛 + 떠오르는 낟알 */
+    /* 자유의 이삭: 횃불처럼 빛나는 볏단 + 은은하게 퍼지는 빛의 고리 + 떠오르는 낟알 */
     liberty(c) {
-      c.put(c.back, c.el("fx-c fx-rays"), 34, 24, 260);
+      [0, 1.2, 2.4].forEach((dl) => { const a = c.put(c.back, c.el("fx-c fx-aura"), 34, 24, 150); a.style.animationDelay = dl + "s"; });
       c.put(c.front, c.el("fx-c fx-torch"), 34, 22, 90);
       emit(c, c.front, 150, { cls: "sh-grain", size: [3, 5], h: [4, 7], x: [8, 62], y: [6, 46], px: true, dx: [-25, 25], dy: [-70, -35], t: [1.6, 2.4], rot: [-90, 90] });
       twinkle(c, c.front, 20, 10, 12, 0); twinkle(c, c.front, 52, 30, 10, 0.8);
@@ -1726,7 +1725,6 @@ const DexFx = (() => {
         const b = c.put(c.front, c.el("fx-c fx-bulb"), x, y, 4.5);
         b.style.setProperty("--pc", pick(cols)); b.style.setProperty("--dl", rnd(0, 1.4) + "s"); b.style.setProperty("--t", rnd(1, 1.8) + "s");
       }
-      c.put(c.back, c.el("fx-c fx-rays"), 149, 66, 120);
       c.put(c.front, c.el("fx-c fx-torch"), 149, 66, 46);
       SNOW(c, 150);
     },
@@ -1865,7 +1863,7 @@ const DexFx = (() => {
         case "rain": emit(c, c.top, p.ms || 50, { cls: "sh-rain", size: 1.5, h: [10, 16], x: [-5, 105], y: -5, dx: [-30, -20], dy: [380, 440], t: [0.6, 0.9] }); break;
         case "stars": { const d = c.el("fx-skydots"); d.style.cssText = "position:absolute;inset:0"; for (let i = 0; i < (p.n || 18); i++) { const s = document.createElement("i"); s.style.left = rnd(2, 98) + "%"; s.style.top = rnd(2, p.h || 45) + "%"; s.style.animationDelay = rnd(0, 2.4) + "s"; d.appendChild(s); } c.sky.appendChild(d); break; }
         case "moon": c.sky.insertAdjacentHTML("beforeend", `<div class="fx-moon" style="${p.style || ""}"></div>`); break;
-        case "sun": c.sky.insertAdjacentHTML("beforeend", `<div class="fx-sunrise" style="${p.style || "top:6%;left:auto;right:6%;width:24%"}"><div class="fx-c fx-sunrays" style="left:50%;top:50%;width:260%;aspect-ratio:1"></div><div class="fx-sun" style="position:absolute;inset:0"></div></div>`); break;
+        case "sun": c.sky.insertAdjacentHTML("beforeend", `<div class="fx-sunrise" style="${p.style || "top:6%;left:auto;right:6%;width:24%"}"><div class="fx-sun" style="position:absolute;inset:0"></div></div>`); break;
         case "clouds": emit(c, c.sky, p.ms || 1500, { cls: "sh-cloud", size: [34, 52], h: [12, 16], x: p.rtl ? -15 : 105, y: [6, p.ymax || 55], dx: p.rtl ? [380, 460] : [-460, -380], t: [p.tmin || 6, (p.tmin || 6) + 2], op: 0.9 }); break;
         case "beams": c.sky.insertAdjacentHTML("beforeend", '<div class="fx-beam" style="left:4%"></div><div class="fx-beam r"></div>'); break;
         case "confetti": emit(c, c.sky, p.ms || 170, { cls: "fx-conf", size: 6, h: 9, x: [0, 100], y: -4, dx: [-40, 40], dy: [320, 420], rot: [300, 700], t: [2.6, 3.6], pc: ["#ffe066", "#ff6b8a", "#6be0ff", "#ffffff", "#9cff7a"] }); break;

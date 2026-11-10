@@ -536,7 +536,7 @@ function dexCardHTML(x) {
       </div></div><div class="dxc-glare"></div></div>
     </div></div></div>
     <p class="dxc-hint">카드를 끌어서 기울여 보세요 · 탭하면 뒷면</p>
-    ${"DeviceOrientationEvent" in window ? '<button type="button" class="dxc-gy" aria-pressed="false">폰 기울여서 보기</button>' : ""}
+    ${"DeviceOrientationEvent" in window && matchMedia("(pointer: coarse)").matches ? '<button type="button" class="dxc-gy" aria-pressed="false">폰 기울여서 보기</button>' : ""}
     <p class="dxc-msg" hidden></p></div>`;
 }
 const DXC = { fx: null, raf: 0, gyro: false, got: false, base: null, card: null };

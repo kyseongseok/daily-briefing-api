@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script>
 // 화면 폭 900px 이상(PC, 펼친 폴드 가로)은 PC 화면으로. 폴드를 접고 펴거나 돌려도 따라 바뀜. ?m=1 이면 휴대폰 화면 고정
-if (!/[?&]m=1/.test(location.search)) { const wide = matchMedia("(min-width: 900px) and (min-height: 560px)"); if (wide.matches) location.replace("pc.html" + location.hash); wide.addEventListener("change", (e) => { if (e.matches) location.replace("pc.html" + location.hash); }); }
+if (!/[?&]m=1/.test(location.search)) { const wide = matchMedia("(min-width: 900px) and (min-height: 560px)"); if (wide.matches) location.replace("pc.html" + location.search + location.hash); wide.addEventListener("change", (e) => { if (e.matches) location.replace("pc.html" + location.search + location.hash); }); }
 </script>
 <link rel="stylesheet" href="assets/app.css">
 <style>

@@ -641,6 +641,7 @@ function loadDex() {
   } catch (e) {}
   Object.assign(DEX, mergeGold(DEX, {}, Object.fromEntries(DEX.items.filter(owned).map((x) => [x.id, 1])))); // 이미 만난 전설의 알이 남아 있으면 정리
   dexProgress(); checkLegends();
+  if (dexDemo()) DEX.items.forEach((x) => { if (!x.got) x.got = "미리보기"; }); // 확인용 주소에서만 도감 전체 열기
 }
 function saveDex() {
   dexProgress(); checkLegends();
@@ -2068,4 +2069,9 @@ function dexCardMount(sh) {
     gy.setAttribute("aria-pressed", "true"); gy.textContent = "폰 기울기 끄기";
     setTimeout(() => { if (DXC.gyro && !DXC.got) { off(); msg.textContent = "기울기 센서 값이 들어오지 않아요. 손가락으로 끌어서 기울여 보세요."; msg.hidden = false; } }, 1500);
   });
+}
+
+/* 확인용(미리보기) 주소에서 ?dexdemo=1 을 붙이면 도감을 전부 연 상태로 보여 줌. 실제 배포 주소(rdadaily 등)에서는 동작하지 않음 */
+function dexDemo() {
+  try { const h = location.hostname; return (/-kyeongseok\.vercel\.app$/.test(h) || h === "localhost") && /[?&]dexdemo=1\b/.test(location.search); } catch (e) { return false; }
 }

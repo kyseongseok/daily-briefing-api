@@ -641,6 +641,7 @@ function loadDex() {
   } catch (e) {}
   Object.assign(DEX, mergeGold(DEX, {}, Object.fromEntries(DEX.items.filter(owned).map((x) => [x.id, 1])))); // 이미 만난 전설의 알이 남아 있으면 정리
   dexProgress(); checkLegends();
+  if (dexDemo()) DEX.items.forEach((x) => { if (!x.got) x.got = "미리보기"; }); // 확인용 주소에서만 도감 전체 열기
 }
 function saveDex() {
   dexProgress(); checkLegends();

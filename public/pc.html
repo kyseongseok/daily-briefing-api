@@ -114,6 +114,7 @@
 .app.pc .intro > * { width: min(420px, 100%); }
 
 /* 설정 서랍 */
+.drawer > * { flex-shrink: 0; } /* 내용이 길어 스크롤될 때 아래 버튼이 납작해지지 않게 */
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100%); z-index: 30; background: var(--bg); border-left: 1px solid var(--line); padding: 20px 20px 28px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; animation: slide .2s ease-out; }
 @keyframes slide { from { transform: translateX(24px); opacity: 0.5; } to { transform: none; opacity: 1; } }
 .drawer h2 { margin: 0; font-size: calc(20px * var(--sh)); font-weight: 800; }

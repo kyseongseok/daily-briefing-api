@@ -238,7 +238,7 @@ app.addEventListener("click", (e) => {
   if (b.dataset.tour !== undefined) { tour(); return; }
   if (b.dataset.a2hs !== undefined) { showA2HS(app); return; }
 });
-function tour() { startTour(app, (t) => { if (t !== tab) { tab = t; render(); const sc = $("#screen .scroll"); if (sc) sc.scrollTop = 0; } }, render); }
+function tour() { startTour(app, (t) => { const tm = t === "stats" ? "stats" : "news"; if (t === "stats") t = "topics"; /* 휴대폰은 통계가 분야별 안에 있음 */ if (t !== tab || (t === "topics" && topicMode !== tm)) { tab = t; if (t === "topics") topicMode = tm; render(); const sc = $("#screen .scroll"); if (sc) sc.scrollTop = 0; } }, render); }
 bootNews(render);
 S.afterTour = () => { if (a2hsDue()) showA2HS(app); };
 const firstTour = () => { if (!tourSeen()) tour(); else setTimeout(S.afterTour, 800); };

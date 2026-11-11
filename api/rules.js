@@ -9,7 +9,7 @@ import { timingSafeEqual, createHash } from "node:crypto";
 import { supabase, readBody } from "./_supabase.js";
 
 const CODE = "SYS-STAT-RULES";
-const GROUPS = ["neg", "weak", "ctx", "life", "dmg", "mit", "pos", "ex"];
+const GROUPS = ["neg", "weak", "ctx", "life", "out", "dmg", "mit", "pos", "ex"];
 const sameKey = (a, b) => { const h = (s) => createHash("sha256").update(String(s)).digest(); return timingSafeEqual(h(a), h(b)); };
 
 // 상한을 넘으면 말없이 잘라 내지 않고 거절 (관리자 화면에는 저장된 것처럼 보이는데 실제로는 빠지는 일이 없게)

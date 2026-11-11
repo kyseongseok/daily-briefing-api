@@ -45,8 +45,12 @@ export default async function handler(req, res) {
     const issues = group(all.filter((it) => dayKey(Date.parse(it.pubDate) || 0) === today))
       .filter((g) => g.media > 1).sort((a, b) => b.media - a.media).slice(0, 5)
       .map((g) => [g.title, g.media, g.link]);
+    // 오늘은 아직 집계 중이라, 어제 같은 시각까지의 기사 수와 비교할 수 있게 함께 보냄 [오늘 지금까지, 어제 이 시각까지]
+    const tod = (t) => (t + 9 * 3600 * 1000) % 86400000, nowTod = tod(Date.now());
+    const yk = dayKey(Date.now() - 86400000);
+    const cmp = days[yk] ? [(raw[today] || []).length, (raw[yk] || []).filter((it) => tod(Date.parse(it.pubDate)) <= nowTod).length] : null;
     res.setHeader("Cache-Control", "s-maxage=1800, stale-while-revalidate=3600");
-    res.status(200).json({ word: STAT_WORD, from: complete[0] || today, today, days: out, issues, at: Date.now() });
+    res.status(200).json({ word: STAT_WORD, from: complete[0] || today, today, days: out, issues, cmp, at: Date.now() });
   } catch (e) {
     res.status(502).json({ error: String(e.message || e) });
   }

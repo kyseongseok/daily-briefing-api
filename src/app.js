@@ -1221,8 +1221,12 @@ function statsData() {
   const P = S.statPeriod, weekly = P === 90, R = S.rda && S.rda.days ? S.rda : null;
   const days = [];
   for (let i = P - 1; i >= 0; i--) { const date = addDays(TODAY, -i), k = dKey(date), v = R && R.days[k]; days.push({ i, k, date, ok: !!v, today: i === 0, n: v ? v.n : 0, m: v ? v.m : {}, cl: dayCls(v) }); }
-  let slots = days;
-  if (weekly) { slots = []; for (let w = 0; w < 13; w++) { const part = days.slice(w * 7, w * 7 + 7), ok = part.filter((x) => x.ok); slots.push({ date: part[0].date, ok: ok.length > 0, partial: ok.length > 0 && ok.length < part.length, n: ok.reduce((s, x) => s + x.n, 0), cl: { neg: ok.reduce((s, x) => s + x.cl.neg, 0), dmg: ok.reduce((s, x) => s + x.cl.dmg, 0) } }); } }
+  /* 빈 기간 줄이기: 앞쪽에 '수집 전'인 날이 이어지면 잘라 내고, 남은 기간이 31일 이하면 주별 대신 일별로 */
+  const first = days.findIndex((x) => x.ok);
+  let trimFrom = null, shown = days, wk = weekly;
+  if (P > 7 && first > 1) { shown = days.slice(first); trimFrom = shown[0].date; if (shown.length <= 31) wk = false; }
+  let slots = shown;
+  if (wk) { slots = []; for (let w = 0; w * 7 < shown.length; w++) { const part = shown.slice(w * 7, w * 7 + 7), ok = part.filter((x) => x.ok); slots.push({ date: part[0].date, ok: ok.length > 0, partial: ok.length > 0 && ok.length < part.length, n: ok.reduce((s, x) => s + x.n, 0), cl: { neg: ok.reduce((s, x) => s + x.cl.neg, 0), dmg: ok.reduce((s, x) => s + x.cl.dmg, 0) } }); } }
   const okDays = days.filter((x) => x.ok), have = okDays.length;
   const total = okDays.reduce((s, x) => s + x.n, 0);
   const done = okDays.filter((x) => !x.today); // 하루 평균은 다 끝난 날만
@@ -1232,11 +1236,15 @@ function statsData() {
   const best = done.slice().sort((a, b) => b.n - a.n)[0];
   const cl = { neg: 0, dmg: 0, pos: 0, neu: 0 }; okDays.forEach((x) => Object.keys(cl).forEach((c) => { cl[c] += x.cl[c]; }));
   const negs = []; okDays.slice().reverse().forEach((x) => (R.days[x.k].list || []).forEach((a) => { const k = classify(a[0]); if (k.c === "neg") negs.push({ a, k, date: x.date }); }));
-  return { P, have, weekly, slots, total, cl, negs, avg: done.length ? done.reduce((s, x) => s + x.n, 0) / done.length : 0, prev, media: Object.entries(mc).sort((a, b) => b[1] - a[1]).slice(0, 5), best };
+  /* 평소보다 많았던 날: 다 끝난 날의 평균보다 1.8배 이상, 15건 넘게 많은 날 + 그날 가장 많이 다룬 소식 */
+  const avg = done.length ? done.reduce((s, x) => s + x.n, 0) / done.length : 0;
+  const spikes = wk ? [] : done.filter((x) => avg && x.n >= avg * 1.8 && x.n - avg >= 15).sort((a, b) => b.n / avg - a.n / avg).slice(0, 3)
+    .map((x) => ({ date: x.date, n: x.n, top: ((R.days[x.k].list || []).slice().sort((a, b) => b[3] - a[3])[0] || [])[0] || "" }));
+  return { P, have, weekly: wk, trimFrom, spikes, slots, total, cl, negs, avg, prev, media: Object.entries(mc).sort((a, b) => b[1] - a[1]).slice(0, 5), best };
 }
 function chartSVG(D, W) {
   const RW = 64, L = 34, R = 6, T = 10, B = D.slots.length <= 7 && !D.weekly ? 34 : 24, ch = 136, H = T + ch + RW + B, cw = W - L - R, n = D.slots.length;
-  const max = Math.max(10, ...D.slots.map((s) => s.n)), step = Math.ceil(max / 3 / 5) * 5, top = step * 3;
+  const max = Math.max(10, ...D.slots.map((s) => s.n)) * (D.spikes && D.spikes.length ? 1.12 : 1), step = Math.ceil(max / 3 / 5) * 5, top = step * 3;
   const bw = cw / n, gap = Math.min(4, bw * 0.25);
   let g = "";
   for (let t = 0; t <= 3; t++) { const y = T + ch - (t * step / top) * ch; g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y + 4}" text-anchor="end" font-size="10" fill="var(--faint)">${t * step}</text>`; }
@@ -1250,6 +1258,11 @@ function chartSVG(D, W) {
     if (!D.weekly) g += `<rect class="hit" data-sday="${dKey(s.date)}" x="${L + i * bw}" y="${T}" width="${bw}" height="${ch}" fill="transparent" tabindex="0" role="button" aria-label="${md(s.date)} 기사 ${s.n}건 보기"><title>${md(s.date)} ${s.n}건 · 눌러서 기사 보기</title></rect>`;
     if (s.partial) g += `<text x="${x + w / 2}" y="${y - 4}" text-anchor="middle" font-size="9" fill="var(--faint)">일부</text>`;
   });
+  if (!D.weekly && D.avg > 0 && n > 1) { // 평균 점선
+    const y = T + ch - (D.avg / top) * ch;
+    g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--sub)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>`;
+  }
+  D.slots.forEach((s, i) => { if (D.spikes && D.spikes.some((p) => +p.date === +s.date)) { const x = L + i * bw + bw / 2, y = T + ch - (s.n / top) * ch - (n <= 7 ? 16 : 4); g += `<text x="${x}" y="${y}" text-anchor="middle" font-size="11" fill="#D6453A">▲</text>`; } });
   if (firstMissing >= 0) { const mx = L + ((firstMissing + lastMissing + 1) / 2) * bw; g += `<text x="${mx}" y="${T + ch - 26}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--faint)">수집 전 · 데이터 없음</text>`; }
   /* 막대 아래: 부정·현장피해를 원 크기로 (숫자 없이, 많을수록 크고 진하게). 누르면 그날 그 기사만 */
   const yN = T + ch + 18, yD = T + ch + 48, bmax = Math.max(1, ...D.slots.map((s) => Math.max(s.cl ? s.cl.neg : 0, s.cl ? s.cl.dmg : 0)));
@@ -1308,13 +1321,25 @@ function statsHTML(wide) {
       <div><small>이전 기간 대비</small>${chg === null ? `<b class="na">비교 전</b><em>이전 ${D.P}일 데이터가 아직 없어요</em>` : `<b class="${chg >= 0 ? "up" : "down"}">${chg >= 0 ? "+" : ""}${chg}<span>%</span></b>`}</div>
     </div>
     ${clsHTML(D)}
-    <section class="st-card"><h3>${D.weekly ? "주별" : "일별"} 기사 수 <small>${D.weekly ? "오늘은 집계 중이라 연하게 표시" : "막대나 원을 누르면 그날 기사를 볼 수 있어요"}</small></h3>${chartSVG(D, wide ? 1120 : 340)}<div class="cl-lg"><span><i class="neg"></i>부정(기관 평판)</span><span><i class="dmg"></i>현장피해(재해·병해)</span><span class="f">원이 클수록 많아요</span></div></section>
+    <section class="st-card"><h3>${D.weekly ? "주별" : "일별"} 기사 수 <small>${D.weekly ? "오늘은 집계 중이라 연하게 표시" : "막대나 원을 누르면 그날 기사를 볼 수 있어요"}</small></h3>${cmpHTML()}${chartSVG(D, wide ? 1120 : 340)}<div class="cl-lg"><span><i class="neg"></i>부정(기관 평판)</span><span><i class="dmg"></i>현장피해(재해·병해)</span><span class="f">원이 클수록 많아요</span>${!D.weekly && D.avg ? `<span class="f">점선은 하루 평균 ${Math.round(D.avg)}건</span>` : ""}</div>${spikeHTML(D)}${D.trimFrom ? `<div class="st-note small">${md(D.trimFrom)}부터 모은 기록이에요 · 날마다 쌓이면 ${D.P === 90 ? "3개월" : "1개월"} 추이가 채워져요</div>` : ""}</section>
     <div class="st-cols">
     <section class="st-card"><h3>많이 다룬 매체 <small>이 기간 상위 5</small></h3>${D.media.length ? D.media.map(([m, n], i) => `<div class="st-bar"><span>${i + 1}. ${esc(m)}</span><i><em style="width:${n / D.media[0][1] * 100}%;background:#34A98A"></em></i><b>${n}</b></div>`).join("") : `<div class="st-note small">아직 기사가 없어요</div>`}</section>
     <section class="st-card"><h3>많이 보도된 소식 <small>오늘 · 어제, 여러 매체가 함께 다룬 기사</small></h3>${issues.length ? issues.map(([t, n, link, when], i) => `<a class="st-rank" data-rd="${esc(rdId(link))}" href="${esc(safeUrl(link))}" target="_blank" rel="noopener"><em>${i + 1}</em><span>${when === "어제" ? `<i class="st-day">어제</i>` : ""}${esc(t)}</span><b>${n}개 매체</b></a>`).join("") : `<div class="st-note small">여러 매체가 함께 다룬 소식이 아직 없어요</div>`}</section>
     </div>
     <div class="st-note small">네이버 뉴스 검색 기준 · 30분마다 갱신 · 같은 소식을 여러 매체가 쓰면 각각 셉니다.</div>
   </div>`;
+}
+/* 평소보다 많았던 날 (그래프의 ▲) — 그날 가장 많이 다룬 소식과 함께, 누르면 그날 기사 */
+function spikeHTML(D) {
+  if (!D.spikes || !D.spikes.length) return "";
+  const WD = ["일", "월", "화", "수", "목", "금", "토"];
+  return `<div class="st-spk"><b>▲ 평소보다 많았던 날</b>${D.spikes.map((p) => `<button type="button" data-sday="${dKey(p.date)}"><span class="d">${md(p.date)}(${WD[p.date.getDay()]}) · ${p.n}건 <em>평균의 ${(p.n / D.avg).toFixed(1)}배</em></span><span class="t">${esc(p.top)}</span></button>`).join("")}</div>`;
+}
+/* 오늘은 집계 중: 어제 같은 시각까지와 비교 */
+function cmpHTML() {
+  const c = S.rda && S.rda.cmp; if (!c) return "";
+  const [t, y] = c, d = t - y;
+  return `<span class="st-cmp">오늘 지금까지 <b>${t}건</b> · 어제 이 시각 ${y}건 <em class="${d > 0 ? "up" : d < 0 ? "dn" : ""}">${d > 0 ? "▲" : d < 0 ? "▼" : "−"}${Math.abs(d) || ""}</em></span>`;
 }
 /* 부정·현장피해·긍정 요약 + 확인이 필요한 기사 */
 function clsHTML(D) {

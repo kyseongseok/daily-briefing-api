@@ -678,6 +678,8 @@ mark.cl-neg { color: #C2372D; } mark.cl-dmg { color: #C96A0A; } mark.cl-pos { co
   .sl-c, .sl-pile i, .sl-isak, .sl-steps li { animation: none; } .sl-c:nth-child(1) { opacity: 1; } .sl-n em { animation: none; } .sl-n em::after { content: "1,000"; }
 }
 
+.st-day { font-style: normal; font-size: 11px; font-weight: 700; color: var(--faint); background: var(--line2); border-radius: 5px; padding: 1px 6px; margin-right: 6px; vertical-align: 1px; }
+
 /* ===== DAILY BRIEFING 도감 움직이는 효과 (dexfx) =====
    구조: .fx-stage(배경) > .fx-art(그림 위치) > .fx-mover(캐릭터 움직임) > img + 효과 레이어 */
 .fx-stage{position:relative;overflow:hidden;isolation:isolate}

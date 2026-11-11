@@ -677,3 +677,5 @@ mark.cl-neg { color: #C2372D; } mark.cl-dmg { color: #C96A0A; } mark.cl-pos { co
 @media (prefers-reduced-motion: reduce) {
   .sl-c, .sl-pile i, .sl-isak, .sl-steps li { animation: none; } .sl-c:nth-child(1) { opacity: 1; } .sl-n em { animation: none; } .sl-n em::after { content: "1,000"; }
 }
+
+.st-day { font-style: normal; font-size: 11px; font-weight: 700; color: var(--faint); background: var(--line2); border-radius: 5px; padding: 1px 6px; margin-right: 6px; vertical-align: 1px; }

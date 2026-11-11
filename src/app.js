@@ -1294,7 +1294,12 @@ function statsHTML(wide) {
   const D = statsData(), from = fromKey(S.rda.from);
   const chg = D.prev ? Math.round((D.total - D.prev) / D.prev * 100) : null;
   const partialNote = D.have < D.P ? `<div class="st-warn">${md(from)}부터 기사 수가 모여 있어요 (${D.P}일 중 ${D.have}일). 빗금 칸은 아직 모이지 않은 날이고, 앞으로 매일 채워져요.</div>` : "";
-  const issues = S.rda.issues || [];
+  /* 많이 보도된 소식: 오늘 것을 먼저, 5개가 안 되면 어제 여러 매체가 다룬 소식으로 채움 (오전엔 오늘 소식이 적어서) */
+  const issues = (S.rda.issues || []).map(([t, n, link]) => [t, n, link, "오늘"]);
+  if (issues.length < 5) {
+    const yv = S.rda.days && S.rda.days[dKey(addDays(TODAY, -1))], seen = new Set(issues.map((x) => x[0]));
+    ((yv && yv.list) || []).filter((a) => a[3] > 1 && !seen.has(a[0])).sort((a, b) => b[3] - a[3]).slice(0, 5 - issues.length).forEach((a) => issues.push([a[0], a[3], a[2], "어제"]));
+  }
   return `<div class="st${wide ? " st-wide" : ""}">
     ${tabs}${head}${partialNote}
     <div class="st-tiles">
@@ -1306,7 +1311,7 @@ function statsHTML(wide) {
     <section class="st-card"><h3>${D.weekly ? "주별" : "일별"} 기사 수 <small>${D.weekly ? "오늘은 집계 중이라 연하게 표시" : "막대나 원을 누르면 그날 기사를 볼 수 있어요"}</small></h3>${chartSVG(D, wide ? 1120 : 340)}<div class="cl-lg"><span><i class="neg"></i>부정(기관 평판)</span><span><i class="dmg"></i>현장피해(재해·병해)</span><span class="f">원이 클수록 많아요</span></div></section>
     <div class="st-cols">
     <section class="st-card"><h3>많이 다룬 매체 <small>이 기간 상위 5</small></h3>${D.media.length ? D.media.map(([m, n], i) => `<div class="st-bar"><span>${i + 1}. ${esc(m)}</span><i><em style="width:${n / D.media[0][1] * 100}%;background:#34A98A"></em></i><b>${n}</b></div>`).join("") : `<div class="st-note small">아직 기사가 없어요</div>`}</section>
-    <section class="st-card"><h3>오늘 많이 보도된 소식 <small>여러 매체가 함께 다룬 기사</small></h3>${issues.length ? issues.map(([t, n, link], i) => `<a class="st-rank" data-rd="${esc(rdId(link))}" href="${esc(safeUrl(link))}" target="_blank" rel="noopener"><em>${i + 1}</em><span>${esc(t)}</span><b>${n}개 매체</b></a>`).join("") : `<div class="st-note small">여러 매체가 함께 다룬 소식이 아직 없어요</div>`}</section>
+    <section class="st-card"><h3>많이 보도된 소식 <small>오늘 · 어제, 여러 매체가 함께 다룬 기사</small></h3>${issues.length ? issues.map(([t, n, link, when], i) => `<a class="st-rank" data-rd="${esc(rdId(link))}" href="${esc(safeUrl(link))}" target="_blank" rel="noopener"><em>${i + 1}</em><span>${when === "어제" ? `<i class="st-day">어제</i>` : ""}${esc(t)}</span><b>${n}개 매체</b></a>`).join("") : `<div class="st-note small">여러 매체가 함께 다룬 소식이 아직 없어요</div>`}</section>
     </div>
     <div class="st-note small">네이버 뉴스 검색 기준 · 30분마다 갱신 · 같은 소식을 여러 매체가 쓰면 각각 셉니다.</div>
   </div>`;

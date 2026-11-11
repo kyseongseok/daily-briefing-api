@@ -1298,6 +1298,12 @@ function statsLoadingHTML() {
     <ol class="sl-steps"><li>기사 모으기</li><li>같은 소식 묶기</li><li>부정·긍정 나누기</li></ol>
   </section>`;
 }
+/* 모바일 그래프 폭: 실제 화면 폭에 맞춤. 340으로 고정하면 폴드를 펼친 세로 화면처럼 넓은 화면에서
+   그림 전체가 2배로 확대돼 날짜·요일 글씨가 커 보였음 → 넓어지면 칸만 넓어지고 글씨 크기는 그대로 */
+function mobileChartW() {
+  const card = document.querySelector(".st-card"), w = card ? card.clientWidth - 32 : Math.min(window.innerWidth, 900) - 64;
+  return Math.round(Math.max(240, Math.min(860, w || 340)));
+}
 function statsHTML(wide) {
   const per = [[7, "최근 1주"], [30, "최근 1개월"], [90, "최근 3개월"]];
   const tabs = `<div class="st-per" role="tablist">${per.map(([p, nm]) => `<button type="button" role="tab" data-period="${p}" aria-selected="${S.statPeriod === p}">${nm}</button>`).join("")}</div>`;
@@ -1321,7 +1327,7 @@ function statsHTML(wide) {
       <div><small>이전 기간 대비</small>${chg === null ? `<b class="na">비교 전</b><em>이전 ${D.P}일 데이터가 아직 없어요</em>` : `<b class="${chg >= 0 ? "up" : "down"}">${chg >= 0 ? "+" : ""}${chg}<span>%</span></b>`}</div>
     </div>
     ${clsHTML(D)}
-    <section class="st-card"><h3>${D.weekly ? "주별" : "일별"} 기사 수 <small>${D.weekly ? "오늘은 집계 중이라 연하게 표시" : "막대나 원을 누르면 그날 기사를 볼 수 있어요"}</small></h3>${cmpHTML()}${chartSVG(D, wide ? 1120 : 340)}<div class="cl-lg"><span><i class="neg"></i>부정(기관 평판)</span><span><i class="dmg"></i>현장피해(재해·병해)</span><span class="f">원이 클수록 많아요</span>${!D.weekly && D.avg ? `<span class="f">점선은 하루 평균 ${Math.round(D.avg)}건</span>` : ""}</div>${spikeHTML(D)}${D.trimFrom ? `<div class="st-note small">${md(D.trimFrom)}부터 모은 기록이에요 · 날마다 쌓이면 ${D.P === 90 ? "3개월" : "1개월"} 추이가 채워져요</div>` : ""}</section>
+    <section class="st-card"><h3>${D.weekly ? "주별" : "일별"} 기사 수 <small>${D.weekly ? "오늘은 집계 중이라 연하게 표시" : "막대나 원을 누르면 그날 기사를 볼 수 있어요"}</small></h3>${cmpHTML()}${chartSVG(D, wide ? 1120 : mobileChartW())}<div class="cl-lg"><span><i class="neg"></i>부정(기관 평판)</span><span><i class="dmg"></i>현장피해(재해·병해)</span><span class="f">원이 클수록 많아요</span>${!D.weekly && D.avg ? `<span class="f">점선은 하루 평균 ${Math.round(D.avg)}건</span>` : ""}</div>${spikeHTML(D)}${D.trimFrom ? `<div class="st-note small">${md(D.trimFrom)}부터 모은 기록이에요 · 날마다 쌓이면 ${D.P === 90 ? "3개월" : "1개월"} 추이가 채워져요</div>` : ""}</section>
     <div class="st-cols">
     <section class="st-card"><h3>많이 다룬 매체 <small>이 기간 상위 5</small></h3>${D.media.length ? D.media.map(([m, n], i) => `<div class="st-bar"><span>${i + 1}. ${esc(m)}</span><i><em style="width:${n / D.media[0][1] * 100}%;background:#34A98A"></em></i><b>${n}</b></div>`).join("") : `<div class="st-note small">아직 기사가 없어요</div>`}</section>
     <section class="st-card"><h3>많이 보도된 소식 <small>오늘 · 어제, 여러 매체가 함께 다룬 기사</small></h3>${issues.length ? issues.map(([t, n, link, when], i) => `<a class="st-rank" data-rd="${esc(rdId(link))}" href="${esc(safeUrl(link))}" target="_blank" rel="noopener"><em>${i + 1}</em><span>${when === "어제" ? `<i class="st-day">어제</i>` : ""}${esc(t)}</span><b>${n}개 매체</b></a>`).join("") : `<div class="st-note small">여러 매체가 함께 다룬 소식이 아직 없어요</div>`}</section>
@@ -1388,6 +1394,10 @@ function rulesSheet() {
       <p class="tm-p">매일 0시 30분 통계 자동 저장 · <button type="button" class="cl-more" data-scheck>지금 저장해 보기</button></p>` : ""}`;
 }
 function bindStats(app, rerender) {
+  // 폴드 펼치기·접기, 가로·세로 돌리기로 폭이 바뀌면 그래프를 새 폭으로 다시 그림
+  let lastW = 0, rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => {
+    if (!document.querySelector(".st-card svg") || document.querySelector(".st.st-wide")) return;
+    const w = mobileChartW(); if (lastW && Math.abs(w - lastW) < 24) return; lastW = w; rerender(); }, 200); });
   const openDay = (el) => { S.sdFilt = el.dataset.sfilt || "all"; S.sheet = { kind: "statDay", arg: el.dataset.sday }; renderSheet(app); };
   const adminFetch = (method, body) => { let key = ""; try { key = sessionStorage.getItem("db-admin") || ""; } catch (e) {} return fetch("/api/rules", { method, headers: { "Content-Type": "application/json", "X-Admin-Key": key }, body: body ? JSON.stringify(body) : undefined }); };
   const addWords = (g) => { const inp = $(`[data-raddin="${g}"]`, app); if (!inp) return; const ws = inp.value.split(",").map((w) => w.replace(/\s+/g, " ").trim()).filter((w) => w && w.length <= 30);

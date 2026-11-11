@@ -1143,15 +1143,21 @@ const STAT_WORD = "농촌진흥청", STATS_KEY = "daily-briefing-stats-v2";
          → 긍정 단어 있으면 '긍정' → 나머지 '중립'. 관리자가 기사별로 직접 고친 분류(fix)가 가장 먼저.
    기본값은 2026년 11월 기사 약 2,000건으로 다듬은 것. 매달 1일 함께 점검하며 고쳐 나감 */
 const DEFAULT_RULES = {
-  neg: ["의혹", "논란", "비판", "질타", "지적", "도마", "뭇매", "철퇴", "과징금", "해킹", "개인정보", "유출", "부실", "부적정", "쌈짓돈", "혈세", "낭비", "낮잠", "둔갑", "허위", "표절", "특혜", "갑질", "비리", "횡령", "징계", "적발", "위반", "무산", "어겼", "소송", "행정심판", "반발", "항의", "불만", "불신", "책임론", "삭감", "축소", "위축", "미흡", "미비", "실효성", "무용지물", "방치", "늑장", "뒷북", "맹탕", "엉터리", "허점", "구멍", "외면", "혼선", "잡음", "그쳐", "불과", "턱없이", "사각지대"],
+  neg: ["의혹", "논란", "비판", "질타", "지적", "도마", "뭇매", "철퇴", "과징금", "해킹", "부적정", "쌈짓돈", "혈세", "낮잠", "둔갑", "허위", "표절", "특혜", "갑질", "비리", "횡령", "징계", "무산", "어겼", "소송", "행정심판", "책임론", "삭감", "늑장", "뒷북", "맹탕", "엉터리", "구멍", "턱없이", "무용지물"],
+  weak: ["방치", "사각지대", "유출", "개인정보", "부실", "낭비", "적발", "위반", "반발", "항의", "불만", "불신", "축소", "위축", "미흡", "미비", "실효성", "허점", "외면", "혼선", "잡음", "그쳐", "불과"],
+  ctx: ["농진청", "농촌진흥청", "진흥청", "정부", "예산", "국감", "국정감사", "의원", "정책", "사업", "기관", "공공", "행정", "감독", "감사", "연구비", "직원", "공무원", "청장", "위탁", "보안", "R&D", "농정", "지자체", "개보위", "개인정보위"],
+  life: ["하면", "먹으면", "마시면", "에 좋은", "좋을까", "증상", "건강", "질환", "피부", "다이어트", "레시피", "요리", "고르는 법", "보관법", "꿀팁"],
   dmg: ["피해", "확진", "감염", "바이러스", "병해충", "해충", "폭염", "냉해", "동해", "우박", "가뭄", "습해", "호우", "폐사", "비상", "열과", "일소", "고사", "사고", "중독", "위기", "재해", "확산"],
   mit: ["예방", "줄인", "줄여", "줄이", "감소", "막는", "막아", "막고", "차단", "대응", "대비", "방제", "극복", "최소화", "저감", "방지", "복구", "지원", "요령", "기술", "관리", "대책", "주의", "당부", "점검", "해법", "대안", "뚝", "훈련", "캠페인", "교육", "진단", "안전", "수칙", "신고", "감지", "선별", "토론회", "주의보", "예찰", "연구"],
   pos: ["개발", "성공", "선정", "수상", "최우수", "우수상", "장관상", "대통령상", "1위", "보급", "절감", "향상", "입증", "효과", "호평", "인기", "협약", "MOU", "맞손", "손잡", "출시", "첫선", "특허", "기술이전", "수출", "돌파", "성과", "혁신", "높인다", "높여", "늘어", "감사패", "공개", "확대"],
-  ex: ["기술 확산", "현장 확산", "보급 확산", "확산 보급", "확산 속도", "확산 박차", "급부상", "지적재산", "감사패", "청렴", "국정감사 답변", "질의 답변", "유출 여부", "사각지대 최소화"],
+  ex: ["기술 확산", "현장 확산", "보급 확산", "확산 보급", "확산 속도", "확산 박차", "급부상", "지적재산", "감사패", "청렴", "국정감사 답변", "질의 답변", "유출 여부"],
   fix: {},
 };
 const RULE_GROUPS = [
-  ["neg", "부정", "제목에 하나라도 있으면 ‘부정’. 가장 먼저 확인해요."],
+  ["neg", "부정 (강함)", "제목에 하나라도 있으면 바로 ‘부정’. 가장 먼저 확인해요."],
+  ["weak", "부정 (약함)", "아래 ‘기관 맥락’ 단어가 제목에 같이 있을 때만 ‘부정’. 예: ‘방치하면 방광도 위험’은 중립, ‘개인정보 유출…농진청’은 부정."],
+  ["ctx", "기관 맥락", "약한 부정 단어를 부정으로 만드는 말이에요."],
+  ["life", "생활정보 표현", "건강·요리 같은 생활정보 기사예요. 이 말이 있으면 약한 부정과 현장피해로 보지 않아요(강한 부정은 그대로)."],
   ["dmg", "현장피해", "피해 단어가 있어도 아래 ‘대응 단어’나 긍정 단어가 같이 있으면 중립으로 봐요."],
   ["mit", "대응 단어", "피해 기사를 농촌진흥청의 대응 기사(중립)로 바꿔요."],
   ["pos", "긍정", "부정·현장피해가 아니고 이 단어가 있으면 ‘긍정’."],
@@ -1160,7 +1166,7 @@ const RULE_GROUPS = [
 const CLS = { neg: "부정", dmg: "현장피해", pos: "긍정", neu: "중립" };
 const RULES_KEY = "daily-briefing-rules";
 let RULES = DEFAULT_RULES, RULES_AT = null;
-const normRules = (r) => { const o = {}; ["neg", "dmg", "mit", "pos", "ex"].forEach((g) => { o[g] = Array.isArray(r && r[g]) ? r[g] : DEFAULT_RULES[g]; }); o.fix = (r && r.fix) || {}; return o; };
+const normRules = (r) => { const o = {}; ["neg", "weak", "ctx", "life", "dmg", "mit", "pos", "ex"].forEach((g) => { o[g] = Array.isArray(r && r[g]) ? r[g] : DEFAULT_RULES[g]; }); o.fix = (r && r.fix) || {}; return o; };
 try { const c = JSON.parse(localStorage.getItem(RULES_KEY) || "null"); if (c && c.rules) { RULES = normRules(c.rules); RULES_AT = c.at; } } catch (e) {}
 async function fetchRules() {
   try {
@@ -1177,7 +1183,9 @@ function classify(title, R = RULES) {
   let t = t0; (R.ex || []).forEach((e) => { if (e) t = t.split(e).join(" "); });
   const hit = (g) => (R[g] || []).find((w) => w && t.includes(w));
   const n = hit("neg"); if (n) return { c: "neg", w: n };
-  const d = hit("dmg"), p = hit("pos");
+  const life = hit("life"), wk = !life && hit("weak");
+  if (wk && hit("ctx")) return { c: "neg", w: wk };
+  const d = !life && hit("dmg"), p = hit("pos");
   if (d && !hit("mit") && !p) return { c: "dmg", w: d };
   if (p) return { c: "pos", w: p };
   return { c: "neu", w: "" };
@@ -1227,7 +1235,7 @@ function statsData() {
   return { P, have, weekly, slots, total, cl, negs, avg: done.length ? done.reduce((s, x) => s + x.n, 0) / done.length : 0, prev, media: Object.entries(mc).sort((a, b) => b[1] - a[1]).slice(0, 5), best };
 }
 function chartSVG(D, W) {
-  const RW = 64, L = 34, R = 6, T = 10, B = 24, ch = 136, H = T + ch + RW + B, cw = W - L - R, n = D.slots.length;
+  const RW = 64, L = 34, R = 6, T = 10, B = D.slots.length <= 7 && !D.weekly ? 34 : 24, ch = 136, H = T + ch + RW + B, cw = W - L - R, n = D.slots.length;
   const max = Math.max(10, ...D.slots.map((s) => s.n)), step = Math.ceil(max / 3 / 5) * 5, top = step * 3;
   const bw = cw / n, gap = Math.min(4, bw * 0.25);
   let g = "";
@@ -1256,14 +1264,32 @@ function chartSVG(D, W) {
     });
   });
   const labIdx = n <= 7 ? D.slots.map((_, i) => i) : [0, Math.floor(n / 2), n - 1];
-  labIdx.forEach((i) => { const s = D.slots[i]; g += `<text x="${L + i * bw + bw / 2}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--faint)">${D.weekly ? mdS(s.date) + "주" : n <= 7 ? ["일", "월", "화", "수", "목", "금", "토"][s.date.getDay()] + " " + s.date.getDate() : mdS(s.date)}</text>`; });
+  labIdx.forEach((i) => {
+    const s = D.slots[i], x = L + i * bw + bw / 2;
+    if (n <= 7 && !D.weekly) { // 날짜(크게) 위, 요일(작게) 아래 · 주말은 색
+      const wd = s.date.getDay(), wc = wd === 0 ? "#D6453A" : wd === 6 ? "#2457E6" : "var(--faint)";
+      g += `<text x="${x}" y="${H - 18}" text-anchor="middle" font-size="12" font-weight="800" fill="${s.today ? "var(--accent)" : "var(--ink)"}">${s.date.getDate()}</text><text x="${x}" y="${H - 4}" text-anchor="middle" font-size="10" font-weight="600" fill="${wc}">${["일", "월", "화", "수", "목", "금", "토"][wd]}${s.today ? "·오늘" : ""}</text>`;
+    } else g += `<text x="${x}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--faint)">${D.weekly ? mdS(s.date) + "주" : mdS(s.date)}</text>`;
+  });
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${D.weekly ? "주별" : "일별"} '${STAT_WORD}' 기사 수"><defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--line2)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--line)" stroke-width="3"/></pattern></defs>${g}</svg>`;
+}
+/* 통계를 처음 불러올 때: 이삭이가 돋보기로 기사를 살피고, 기사 카드가 바구니로 모이는 장면
+   + 살펴본 기사 수가 올라가고, 단계(모으기 → 묶기 → 나누기)가 차례로 켜짐. 움직임 줄이기 설정이면 멈춘 그림 */
+function statsLoadingHTML() {
+  const card = (i) => `<i class="sl-c" style="--i:${i}"><b></b><s></s><s></s></i>`;
+  return `<section class="sl" role="status" aria-live="polite" aria-label="농촌진흥청 관련 기사를 수집·분석 중이에요">
+    <div class="sl-stage" aria-hidden="true"><div class="sl-cards">${[0, 1, 2, 3, 4].map(card).join("")}</div>
+      <div class="sl-pile"><i></i><i></i><i></i></div>${IMG.magnifier ? `<img class="sl-isak" src="${IMG.magnifier}" alt="">` : ""}</div>
+    <b class="sl-t">농촌진흥청 관련 기사를 수집·분석 중이에요</b>
+    <span class="sl-n">기사 <em></em>건 살펴보는 중</span>
+    <ol class="sl-steps"><li>기사 모으기</li><li>같은 소식 묶기</li><li>부정·긍정 나누기</li></ol>
+  </section>`;
 }
 function statsHTML(wide) {
   const per = [[7, "최근 1주"], [30, "최근 1개월"], [90, "최근 3개월"]];
   const tabs = `<div class="st-per" role="tablist">${per.map(([p, nm]) => `<button type="button" role="tab" data-period="${p}" aria-selected="${S.statPeriod === p}">${nm}</button>`).join("")}</div>`;
   const head = `<section class="st-info"><b>'${STAT_WORD}'이 들어간 기사 통계</b><p>내 분야 검색어와 상관없이, 기사 제목이나 내용에 '${STAT_WORD}'이 들어간 기사만 세요. 모든 사람이 같은 숫자를 봐요.</p></section>`;
-  if (!S.rda) return `<div class="st${wide ? " st-wide" : ""}">${tabs}${head}<div class="st-note">통계를 불러오는 중이에요…</div></div>`;
+  if (!S.rda) return `<div class="st${wide ? " st-wide" : ""}">${tabs}${head}${statsLoadingHTML()}</div>`;
   if (S.rda.error) return `<div class="st${wide ? " st-wide" : ""}">${tabs}${head}<div class="st-warn">통계를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.</div></div>`;
   const D = statsData(), from = fromKey(S.rda.from);
   const chg = D.prev ? Math.round((D.total - D.prev) / D.prev * 100) : null;

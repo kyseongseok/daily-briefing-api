@@ -15,11 +15,15 @@ export default async function handler(req, res) {
   if (Object.keys(req.query || {}).length) { res.setHeader("Location", "/api/stats"); res.setHeader("Cache-Control", "public, s-maxage=86400"); return res.status(308).end(); }
   const opt = { id, secret, legacy: process.env.NAVER_API_MODE === "legacy" };
   try {
-    const all = [];
-    for (let start = 1; start <= 901; start += 100) {
-      const items = await search(STAT_WORD, opt, { display: 100, start });
-      all.push(...items);
-      if (items.length < 100) break;
+    // 첫 100건을 받은 뒤 나머지 900건은 3개씩 동시에 받음 (차례로 받으면 10번을 기다려서 느렸음)
+    const all = await search(STAT_WORD, opt, { display: 100, start: 1 });
+    if (all.length >= 100) {
+      const starts = [101, 201, 301, 401, 501, 601, 701, 801, 901];
+      for (let i = 0; i < starts.length; i += 3) {
+        const pages = await Promise.all(starts.slice(i, i + 3).map((start) => search(STAT_WORD, opt, { display: 100, start })));
+        pages.forEach((p) => all.push(...p));
+        if (pages.some((p) => p.length < 100)) break;
+      }
     }
     const seen = new Set(), days = {}, raw = {};
     let oldest = Infinity;

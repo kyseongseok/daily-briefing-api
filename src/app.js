@@ -1221,10 +1221,9 @@ function statsData() {
   const P = S.statPeriod, weekly = P === 90, R = S.rda && S.rda.days ? S.rda : null;
   const days = [];
   for (let i = P - 1; i >= 0; i--) { const date = addDays(TODAY, -i), k = dKey(date), v = R && R.days[k]; days.push({ i, k, date, ok: !!v, today: i === 0, n: v ? v.n : 0, m: v ? v.m : {}, cl: dayCls(v) }); }
-  /* 빈 기간 줄이기: 앞쪽에 '수집 전'인 날이 이어지면 잘라 내고, 남은 기간이 31일 이하면 주별 대신 일별로 */
+  /* 기록이 없는 앞쪽 기간은 잘라 내지 않고 빈칸으로 둠 (날마다 저장되면서 채워짐). 아래 안내에 기록 시작일만 표시 */
   const first = days.findIndex((x) => x.ok);
-  let trimFrom = null, shown = days, wk = weekly;
-  if (P > 7 && first > 1) { shown = days.slice(first); trimFrom = shown[0].date; if (shown.length <= 31) wk = false; }
+  const trimFrom = P > 7 && first > 1 ? days[first].date : null, shown = days, wk = weekly;
   let slots = shown;
   if (wk) { slots = []; for (let w = 0; w * 7 < shown.length; w++) { const part = shown.slice(w * 7, w * 7 + 7), ok = part.filter((x) => x.ok); slots.push({ date: part[0].date, ok: ok.length > 0, partial: ok.length > 0 && ok.length < part.length, n: ok.reduce((s, x) => s + x.n, 0), cl: { neg: ok.reduce((s, x) => s + x.cl.neg, 0), dmg: ok.reduce((s, x) => s + x.cl.dmg, 0) } }); } }
   const okDays = days.filter((x) => x.ok), have = okDays.length;
@@ -1251,7 +1250,7 @@ function chartSVG(D, W) {
   let firstMissing = -1, lastMissing = -1;
   D.slots.forEach((s, i) => {
     const x = L + i * bw + gap / 2, w = bw - gap;
-    if (!s.ok) { if (firstMissing < 0) firstMissing = i; lastMissing = i; g += `<rect x="${x}" y="${T + ch - 18}" width="${w}" height="18" rx="2" fill="url(#hatch)"/>`; return; }
+    if (!s.ok) { if (firstMissing < 0) firstMissing = i; lastMissing = i; return; } // 기록 없는 날은 빈칸
     const h = s.n / top * ch, y = T + ch - h;
     g += `<rect class="bar" style="animation-delay:${i * (D.weekly ? 50 : n > 7 ? 18 : 60)}ms" x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="#34A98A"${s.today ? ' fill-opacity=".55"' : ""}><title>${md(s.date)} ${s.n}건${s.today ? " (오늘, 집계 중)" : ""}</title></rect>`;
     if (n <= 7) g += `<text x="${x + w / 2}" y="${y - 4}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--sub)">${s.n}</text>`;
@@ -1263,7 +1262,7 @@ function chartSVG(D, W) {
     g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--sub)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>`;
   }
   D.slots.forEach((s, i) => { if (D.spikes && D.spikes.some((p) => +p.date === +s.date)) { const x = L + i * bw + bw / 2, y = T + ch - (s.n / top) * ch - (n <= 7 ? 16 : 4); g += `<text x="${x}" y="${y}" text-anchor="middle" font-size="11" fill="#D6453A">▲</text>`; } });
-  if (firstMissing >= 0) { const mx = L + ((firstMissing + lastMissing + 1) / 2) * bw; g += `<text x="${mx}" y="${T + ch - 26}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--faint)">수집 전 · 데이터 없음</text>`; }
+  if (firstMissing >= 0 && (lastMissing - firstMissing + 1) * bw >= 70) { const mx = L + ((firstMissing + lastMissing + 1) / 2) * bw; g += `<text x="${mx}" y="${T + ch - 10}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--faint)">아직 기록 없음</text>`; }
   /* 막대 아래: 부정·현장피해를 원 크기로 (숫자 없이, 많을수록 크고 진하게). 누르면 그날 그 기사만 */
   const yN = T + ch + 18, yD = T + ch + 48, bmax = Math.max(1, ...D.slots.map((s) => Math.max(s.cl ? s.cl.neg : 0, s.cl ? s.cl.dmg : 0)));
   const rmax = Math.max(4, Math.min(13, bw * 0.46)), rmin = Math.min(4, rmax * 0.55);

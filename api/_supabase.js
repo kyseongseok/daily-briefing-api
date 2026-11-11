@@ -5,8 +5,9 @@ export function supabase() {
   if (!url || !key) return null;
   const headers = { apikey: key, "Content-Type": "application/json", Prefer: "return=representation" };
   if (!key.startsWith("sb_")) headers.Authorization = `Bearer ${key}`; // 예전 JWT 키
-  return async (method, table, query = "", body) => {
-    const r = await fetch(`${url}/rest/v1/${table}${query}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  return async (method, table, query = "", body, prefer) => {
+    const h = prefer ? { ...headers, Prefer: `${headers.Prefer},${prefer}` } : headers; // 예: "resolution=merge-duplicates" (있으면 덮어쓰기)
+    const r = await fetch(`${url}/rest/v1/${table}${query}`, { method, headers: h, body: body ? JSON.stringify(body) : undefined });
     const text = await r.text();
     if (!r.ok) { const e = new Error(`supabase ${r.status}: ${text.slice(0, 200)}`); e.status = r.status; throw e; }
     return text ? JSON.parse(text) : [];

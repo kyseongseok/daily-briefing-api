@@ -1,4 +1,7 @@
 {
   "outputDirectory": "public",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "crons": [
+    { "path": "/api/stats-save", "schedule": "30 15 * * *" }
+  ]
 }

@@ -1143,6 +1143,7 @@ const STAT_WORD = "농촌진흥청", STATS_KEY = "daily-briefing-stats-v2";
          → 긍정 단어 있으면 '긍정' → 나머지 '중립'. 관리자가 기사별로 직접 고친 분류(fix)가 가장 먼저.
    기본값은 2026년 11월 기사 약 2,000건으로 다듬은 것. 매달 1일 함께 점검하며 고쳐 나감 */
 const DEFAULT_RULES = {
+  v: 2, // 기본 규칙 판 번호. 서버에 저장된 규칙이 이보다 옛 판이면(옛 화면에서 저장된 것) 단어 묶음은 이 기본 규칙을 쓰고, 기사별로 고친 분류만 살림
   neg: ["의혹", "논란", "비판", "질타", "지적", "도마", "뭇매", "철퇴", "과징금", "해킹", "부적정", "쌈짓돈", "혈세", "낮잠", "둔갑", "허위", "표절", "특혜", "갑질", "비리", "횡령", "징계", "무산", "어겼", "소송", "행정심판", "책임론", "삭감", "늑장", "뒷북", "맹탕", "엉터리", "구멍", "턱없이", "무용지물", "껍데기", "전락", "파기", "사실상 실패", "차별", "뒤통수", "두집살림", "헛바퀴", "뒷전", "빨간불", "다더니", "라더니", "%뿐", "％뿐", "'0건'", "‘0건’", "못 미쳐", "비중 하락", "비중은 하락", "비중은 오히려 하락", "후퇴", "유명무실", "저조", "삐걱", "난항", "의문", "사업 중단", "만에 중단", "불법 개조", "여전히 유통", "달랑", "겉돌", "장롱", "역대 최저"],
   weak: ["방치", "사각지대", "유출", "개인정보", "부실", "낭비", "적발", "위반", "반발", "항의", "불만", "불신", "축소", "위축", "미흡", "미비", "실효성", "허점", "외면", "혼선", "잡음", "그쳐", "불과"],
   ctx: ["농진청", "농촌진흥청", "진흥청", "정부", "예산", "국감", "국정감사", "의원", "정책", "사업", "기관", "공공", "행정", "감독", "감사", "연구비", "직원", "공무원", "청장", "위탁", "보안", "R&D", "농정", "지자체", "개보위", "개인정보위"],
@@ -1168,7 +1169,7 @@ const RULE_GROUPS = [
 const CLS = { neg: "부정", dmg: "현장피해", pos: "긍정", neu: "중립" };
 const RULES_KEY = "daily-briefing-rules";
 let RULES = DEFAULT_RULES, RULES_AT = null;
-const normRules = (r) => { const o = {}; ["neg", "weak", "ctx", "life", "out", "dmg", "mit", "pos", "ex"].forEach((g) => { o[g] = Array.isArray(r && r[g]) ? r[g] : DEFAULT_RULES[g]; }); o.fix = (r && r.fix) || {}; return o; };
+const normRules = (r) => { const o = {}, cur = !!r && (r.v || 0) >= DEFAULT_RULES.v; ["neg", "weak", "ctx", "life", "out", "dmg", "mit", "pos", "ex"].forEach((g) => { o[g] = cur && Array.isArray(r[g]) ? r[g] : DEFAULT_RULES[g]; }); o.fix = (r && r.fix) || {}; o.v = DEFAULT_RULES.v; return o; };
 try { const c = JSON.parse(localStorage.getItem(RULES_KEY) || "null"); if (c && c.rules) { RULES = normRules(c.rules); RULES_AT = c.at; } } catch (e) {}
 async function fetchRules() {
   try {

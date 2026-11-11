@@ -27,6 +27,7 @@ function clean(r) {
   const fx = Object.entries(r.fix && typeof r.fix === "object" ? r.fix : {});
   if (fx.length > LIM.fix || fx.some(([t]) => String(t).length > LIM.title)) return { error: "too-many-fixes" };
   fx.forEach(([t, c]) => { if (String(t).trim() && ["neg", "dmg", "pos", "neu"].includes(c)) out.fix[String(t)] = c; });
+  out.v = Math.max(0, Math.min(999, Math.floor(Number(r.v) || 0))); // 규칙 판 번호 (화면의 기본 규칙과 비교용)
   return { rules: out };
 }
 

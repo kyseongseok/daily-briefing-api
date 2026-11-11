@@ -321,10 +321,10 @@ function renderSheet(app) {
   if (k === "dex" && sh.querySelector(".dxc")) { sh.classList.add("dxc-sheet"); dim.classList.add("dxc-dim"); sh.setAttribute("aria-label", "도감 카드"); dexCardMount(sh); }
 }
 function closeSheet(app) { S.sheet = null; S.draft = null; renderSheet(app); }
-function toast(app, msg) {
+function toast(app, msg, ms = 2200) {
   $$(".toast", app).forEach((t) => t.remove());
   const t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); t.textContent = msg; app.append(t);
-  setTimeout(() => t.remove(), 2200);
+  setTimeout(() => t.remove(), ms);
 }
 
 /* 오프닝: 처음 열 때만, 기사 다 모이면 바로 넘어감(최대 2초) */
@@ -1384,7 +1384,8 @@ function rulesSheet() {
       ${adm ? `<div class="rl-add"><input class="fld" data-raddin="${g}" placeholder="${nm}에 단어 추가 (쉼표로 여러 개)" maxlength="60"><button type="button" class="addbtn" data-radd="${g}">추가</button></div>` : ""}</section>`).join("")}
     ${nfix ? `<p class="tm-p">기사별로 직접 고친 분류 ${nfix}건 ${adm ? `<button type="button" class="cl-more" data-rfixclear>모두 지우기</button>` : ""}</p>` : ""}
     <div class="rl-prev"><b>${adm ? "이 규칙으로 지난 7일을 나누면" : "지난 7일 결과"}</b><div><span class="neg">부정 ${pv.neg}${diff("neg")}</span><span class="dmg">현장피해 ${pv.dmg}${diff("dmg")}</span><span class="pos">긍정 ${pv.pos}${diff("pos")}</span></div>${RULES_AT ? `<small>마지막 저장 ${md(new Date(RULES_AT))}</small>` : "<small>기본 규칙 사용 중</small>"}</div>
-    ${adm ? `<button type="button" class="addbtn rl-save" data-rsave>저장하고 모두에게 적용</button>` : ""}`;
+    ${adm ? `<button type="button" class="addbtn rl-save" data-rsave>저장하고 모두에게 적용</button>
+      <p class="tm-p">매일 0시 30분 통계 자동 저장 · <button type="button" class="cl-more" data-scheck>지금 저장해 보기</button></p>` : ""}`;
 }
 function bindStats(app, rerender) {
   const openDay = (el) => { S.sdFilt = el.dataset.sfilt || "all"; S.sheet = { kind: "statDay", arg: el.dataset.sday }; renderSheet(app); };
@@ -1415,6 +1416,15 @@ function bindStats(app, rerender) {
       const r = await adminFetch("POST").catch(() => null);
       if (r && r.ok) { await fetchRules(); S.rdraft = null; toast(app, "관리자 모드예요"); renderSheet(app); rerender(); }
       else { try { sessionStorage.removeItem("db-admin"); } catch (x) {} toast(app, r && r.status === 503 ? "관리자 비밀번호가 아직 설정되지 않았어요 (Vercel STATS_ADMIN_KEY)" : "비밀번호가 맞지 않아요"); }
+      return;
+    }
+    if (t.dataset.scheck !== undefined) {
+      let key = ""; try { key = sessionStorage.getItem("db-admin") || ""; } catch (x) {}
+      t.disabled = true; toast(app, "저장하는 중… (10초쯤 걸려요)", 20000);
+      const r = await fetch("/api/stats-save", { method: "POST", headers: { "X-Admin-Key": key } }).catch(() => null); t.disabled = false;
+      const j = r ? await r.json().catch(() => ({})) : {};
+      if (r && r.ok) toast(app, `저장 성공 · 이번에 ${j.saved.length}일 · 지금까지 ${j.stored}일 보관 중${j.cron ? "" : " · CRON_SECRET이 없어 자동 저장은 안 돼요"}`, 7000);
+      else toast(app, !r ? "연결하지 못했어요" : r.status === 401 ? "비밀번호가 맞지 않아요 · 다시 들어가 주세요" : r.status === 503 ? "Supabase·네이버 설정이 없어요" : j.where === "supabase" ? "Supabase에 저장하지 못했어요 · stat_days 표를 확인해 주세요" : "네이버에서 기사를 받지 못했어요", 7000);
       return;
     }
     if (t.dataset.rlogout !== undefined) { try { sessionStorage.removeItem("db-admin"); } catch (x) {} S.rdraft = null; renderSheet(app); rerender(); return; }

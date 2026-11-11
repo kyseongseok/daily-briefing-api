@@ -10,8 +10,11 @@ const same = (a, b) => { const h = (s) => createHash("sha256").update(String(s))
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
-  const secret = process.env.CRON_SECRET || "";
-  if (!secret || !same(String(req.headers.authorization || ""), `Bearer ${secret}`)) return res.status(401).json({ error: "unauthorized" });
+  // 예약 실행(CRON_SECRET) 또는 관리자(통계 단어 규칙 화면의 '저장 점검' 버튼, STATS_ADMIN_KEY)만 실행 가능
+  const secret = process.env.CRON_SECRET || "", admin = process.env.STATS_ADMIN_KEY || "";
+  const byCron = !!secret && same(String(req.headers.authorization || ""), `Bearer ${secret}`);
+  const byAdmin = req.method === "POST" && !!admin && !!req.headers["x-admin-key"] && same(String(req.headers["x-admin-key"]), admin);
+  if (!byCron && !byAdmin) { if (req.headers["x-admin-key"]) await new Promise((ok) => setTimeout(ok, 600)); return res.status(401).json({ error: "unauthorized" }); }
   const id = process.env.NAVER_CLIENT_ID, key = process.env.NAVER_CLIENT_SECRET, sb = supabase();
   if (!id || !key || !sb) return res.status(503).json({ error: "not-configured" });
   try {
@@ -19,9 +22,11 @@ export default async function handler(req, res) {
     const today = dayKey(Date.now());
     const rows = Object.entries(out).filter(([k]) => k < today).map(([day, v]) => ({ day, n: v.n, media: v.m, list: v.list, updated_at: new Date().toISOString() }));
     if (rows.length) await sb("POST", "stat_days", "?on_conflict=day", rows, "resolution=merge-duplicates");
-    return res.status(200).json({ saved: rows.map((r) => r.day) });
+    // 저장 뒤 표를 다시 읽어 실제로 들어갔는지 확인 (점검 버튼이 보여 줌)
+    const stored = await sb("GET", "stat_days", "?select=day&order=day.asc");
+    return res.status(200).json({ saved: rows.map((r) => r.day), stored: stored.length, first: stored[0]?.day || null, cron: !!secret });
   } catch (e) {
     console.error("stats-save", e);
-    return res.status(502).json({ error: "server" });
+    return res.status(502).json({ error: "server", where: /supabase/.test(e.message) ? "supabase" : "naver" });
   }
 }

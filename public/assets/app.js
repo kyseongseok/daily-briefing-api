@@ -327,22 +327,73 @@ function toast(app, msg, ms = 2200) {
   setTimeout(() => t.remove(), ms);
 }
 
-/* 오프닝: 처음 열 때만, 기사 다 모이면 바로 넘어감(최대 2초) */
+/* 오프닝: 처음 열 때만. 탐정새싹 뒤에서 기사 카드가 크게 돌아 나와 분야 폴더 4개로 쏟아져 들어감
+   - 폴더는 4개 고정. 분야 4개 이하면 분야마다 폴더 하나(남는 폴더는 빈 회색), 5개 이상이면 넷째 폴더에 나머지를 합쳐 '그 외 N개'
+   - 폴더 숫자 = 그 분야에서 실제 모은 기사 수 → 폴더 숫자 합 = 아래 전체 건수
+   - 날아가는 카드는 최대 48장, 나머지는 숫자만 올림. 화면을 누르면 건너뜀. 움직임 줄이기 설정이면 숫자만 바로 채움 */
+const hexMix = (a, b, t) => "#" + [1, 3, 5].map((i) => Math.round(parseInt(a.substr(i, 2), 16) * (1 - t) + parseInt(b.substr(i, 2), 16) * t).toString(16).padStart(2, "0")).join("");
+const FOLDER_GRAY = { f1: "#A2AAB8", f2: "#6F7889", b1: "#E4E7ED", b2: "#C3C9D4", c: "#7D8698", k: "#5A6475" };
+function introFolders() {
+  const col = (c) => { const p = pal(c) || PALETTE[0]; return { f1: hexMix(p.c, "#ffffff", 0.2), f2: hexMix(p.c, "#000000", 0.14), b1: hexMix(p.h, "#ffffff", 0.3), b2: p.h, c: p.c, k: p.k }; };
+  const f = S.cats.slice(0, 4).map((c) => ({ ids: [c.id], n: c.name, cnt: c.count || 0, ...col(c) }));
+  if (S.cats.length > 4) { const r = S.cats.slice(3); f[3] = { ids: r.map((c) => c.id), n: `그 외 ${r.length}개`, cnt: r.reduce((s, c) => s + (c.count || 0), 0), ...FOLDER_GRAY }; }
+  while (f.length < 4) f.push({ ids: [], n: "", cnt: 0, ...FOLDER_GRAY });
+  return f;
+}
 function playIntro(app, onDone) {
   $$(".intro", app).forEach((n) => n.remove());
-  const el = document.createElement("div"); el.className = "intro"; el.setAttribute("aria-label", "오늘 기사를 불러오는 중");
-  el.innerHTML = `<div class="in-top"><div class="date">${longDate()}</div><div class="big">DAILY<br> <b>BRIEFING</b></div><div class="msg">오늘 기사를 분야별로 모으고 있어요</div>
-    <div class="rows">${S.cats.slice(0, 5).map((c) => `<div class="r" style="${cvars(c)};--w:0"><em>${esc(c.name)}</em><span>대기</span></div>`).join("")}</div></div>
-    <div class="foot"><div class="bar"><i></i></div>처음 열 때만 보여요 · 최대 2초</div>`;
+  const el = document.createElement("div"); el.className = "intro"; el.setAttribute("role", "status"); el.setAttribute("aria-label", "내가 설정한 분야대로 오늘 기사를 정리하는 중");
+  el.innerHTML = `<div class="in-top"><div class="date">${longDate()}</div><div class="big">DAILY<br> <b>BRIEFING</b></div>
+    <div class="in-stage" aria-hidden="true">${IMG.s_detective ? `<img class="in-sprout" src="${IMG.s_detective}" alt="">` : ""}</div>
+    <div class="in-msg">내가 설정한 분야대로 기사를 정리하고 있어요</div><div class="in-sub">기사 <em>0</em>건 정리하는 중</div></div>
+    <div class="foot"><div class="bar"><i></i></div>처음 열 때만 보여요 · 누르면 넘어가요</div>`;
   app.append(el);
-  const rows = $$(".r", el), bar = $(".bar i", el);
+  const stage = $(".in-stage", el), bar = $(".bar i", el), num = $(".in-sub em", el);
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const step = reduce ? 0 : 300;
-  rows.forEach((r, i) => setTimeout(() => {
-    const c = S.cats[i]; r.classList.add("on"); r.style.setProperty("--w", Math.max(30, c.count * 18) + "px");
-    $("span", r).textContent = `${c.count}건 ✓`; bar.style.width = ((i + 1) / rows.length * 100) + "%";
-  }, 150 + i * step));
-  setTimeout(() => { el.classList.add("out"); setTimeout(() => { el.remove(); onDone && onDone(); }, 380); }, reduce ? 300 : 150 + rows.length * step + 350);
+  let ended = false;
+  const end = () => { if (ended) return; ended = true; el.classList.add("out"); setTimeout(() => { el.remove(); onDone && onDone(); }, 380); };
+  el.addEventListener("click", end);
+  const start = () => {
+    if (ended) return;
+    const F = introFolders(), W = stage.clientWidth || 315, fw = 70, gap = (W - fw * 4) / 5, fx = F.map((_, i) => gap + i * (fw + gap));
+    stage.insertAdjacentHTML("beforeend", F.map((f, i) => `<div class="in-fs" style="left:${fx[i] + 6}px"></div>
+      <div class="in-fb" style="left:${fx[i]}px"><svg viewBox="0 0 70 62"><defs><linearGradient id="inb${i}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${f.b1}"/><stop offset="1" stop-color="${f.b2}"/></linearGradient></defs><path d="M0 9Q0 1 8 1H24Q29 1 32 5L35.5 10H62Q70 10 70 18V54Q70 62 62 62H8Q0 62 0 54Z" fill="url(#inb${i})"/></svg></div>
+      <div class="in-ff" style="left:${fx[i]}px"><svg viewBox="0 0 70 46"><defs><linearGradient id="inf${i}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${f.f1}"/><stop offset="1" stop-color="${f.f2}"/></linearGradient></defs><rect width="70" height="46" rx="10" fill="url(#inf${i})"/><path d="M4 44C26 40 52 37 70 22V36Q70 46 60 46H10Q6 46 4 44Z" fill="#fff" opacity=".1"/><path d="M9 2.2H61" stroke="#fff" stroke-opacity=".35" stroke-width="1.2" stroke-linecap="round"/></svg><span>0</span></div>
+      <div class="in-fn" style="left:${fx[i] - 3}px;color:${f.k}">${esc(f.n)}</div>`).join(""));
+    const fronts = $$(".in-ff", stage), cnt = [0, 0, 0, 0];
+    const q = []; F.forEach((f, i) => { for (let j = 0; j < f.cnt; j++) q.push(i); });
+    for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
+    const total = q.length; let done = 0;
+    const finish = () => { if (ended) return; $(".in-msg", el).textContent = "정리 끝! 오늘 기사를 보여드릴게요"; $(".in-sub", el).innerHTML = `분야 ${S.cats.length}곳 · 기사 <em>${total}</em>건`; el.classList.add("done"); setTimeout(end, reduce ? 500 : 900); };
+    if (!total) { bar.style.width = "100%"; return finish(); }
+    const land = (i) => { if (ended) return; cnt[i]++; done++; const f = fronts[i]; $("span", f).textContent = cnt[i]; f.classList.remove("bump"); void f.offsetWidth; f.classList.add("bump");
+      num.textContent = done; bar.style.width = (done / total * 100) + "%"; if (done === total) finish(); };
+    if (reduce) { q.forEach(land); return; }
+    const R = (a, b) => a + Math.random() * (b - a), bez = (p, t) => { const u = 1 - t; return [0, 1].map((k) => u * u * u * p[0][k] + 3 * u * u * t * p[1][k] + 3 * u * t * t * p[2][k] + t * t * t * p[3][k]); };
+    const reach = Math.min(175, W / 2 - 20);
+    const fly = (i) => {
+      const c = document.createElement("i"); c.className = "in-card"; c.style.setProperty("--c", F[i].c); c.innerHTML = "<b></b><s></s><s></s>"; stage.append(c);
+      const tx = fx[i] + 8 + R(-6, 6), side = Math.random() < 0.5 ? -1 : 1, sx = W / 2 - 27 + R(-10, 10), sy = 70 + R(-10, 10);
+      const wide = R(reach * 0.6, reach), top = R(-55, -5), spin = R(-30, 30), sz = R(0.75, 1.05), dur = R(1050, 1500), N = 24, kf = [];
+      const A = [[sx, sy], [sx + side * R(0, 30), top], [sx + side * wide, top + R(-10, 10)], [sx + side * wide, R(40, 90)]];
+      const B = [A[3], [A[3][0], R(120, 160)], [tx, R(100, 130)], [tx, 196]];
+      for (let s = 0; s < N; s++) { const t = s / N, seg = t < 0.55 ? A : B, tt = t < 0.55 ? t / 0.55 : (t - 0.55) / 0.45, [x, y] = bez(seg, tt);
+        const rot = (t < 0.55 ? side * (-14 + 28 * tt) : side * 14 * (1 - tt)) + spin * Math.sin(t * Math.PI * 3) * (1 - t), sc = (t < 0.15 ? 0.7 + 2 * t : t > 0.9 ? 1 - (t - 0.9) * 1.2 : 1) * sz;
+        kf.push({ transform: `translate(${x}px,${y}px) rotate(${rot}deg) scale(${sc})`, opacity: t < 0.08 ? t / 0.08 : 1, offset: t }); }
+      kf.push({ transform: `translate(${tx}px,222px) scale(${0.86 * sz})`, opacity: 1, offset: 1 });
+      const an = c.animate(kf, { duration: dur, easing: "cubic-bezier(.45,.05,.35,1)", fill: "forwards" });
+      setTimeout(() => c.classList.add("tag"), dur * 0.42);
+      an.onfinish = () => { c.remove(); land(i); };
+    };
+    const show = Math.min(total, 48);
+    let k = 0;
+    const next = () => { if (ended || k >= total) return; if (k < show) fly(q[k]); else land(q[k]); k++; setTimeout(next, k < show ? (k < 6 ? 110 : 38) : 25); };
+    next();
+  };
+  /* 저장된 기사가 없으면(처음 여는 날) 기사가 들어올 때까지 최대 2.5초 기다렸다가 시작 */
+  const has = () => S.cats.some((c) => c.count > 0);
+  if (has()) setTimeout(start, 250);
+  else { const t0 = Date.now(), poll = setInterval(() => { if (has() || Date.now() - t0 > 2500) { clearInterval(poll); start(); } }, 150); }
 }
 
 /* 공통 클릭 처리 */

@@ -138,6 +138,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .app[data-mode="jogan"] .sheet { border-radius: 0; border-top: 3px solid var(--ink); background: #FFFDF8; }
 .app[data-mode="digest"] .sheet { background: #FFFDF8; }
 @keyframes up { from { transform: translateY(24px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+.sheet > * { flex-shrink: 0; } /* 내용이 길어도 위 제목·필터 칸이 눌려 사라지지 않게 */
 .grab { width: 40px; height: 4px; border-radius: 999px; background: var(--line); align-self: center; }
 .sheet h2 { margin: 0; font-size: calc(18px * var(--sh)); font-weight: 800; letter-spacing: -0.025em; }
 .sh-head { display: flex; align-items: center; gap: 8px; }
@@ -620,6 +621,7 @@ mark.cl-neg { color: #C2372D; } mark.cl-dmg { color: #C96A0A; } mark.cl-pos { co
 .cl-tabs button { flex: none; border: none; border-radius: 999px; padding: 7px 11px; font: inherit; font-size: calc(12.5px * var(--s)); font-weight: 700; background: var(--line2); color: var(--sub); cursor: pointer; }
 .cl-tabs button.neg { background: #FDECEA; color: #B8332A; } .cl-tabs button.dmg { background: #FDF1E2; color: #A65A0B; } .cl-tabs button.pos { background: #E3F5F0; color: #1E7A69; }
 .cl-tabs button[aria-pressed="true"] { background: var(--navy); color: #fff; }
+.sheet .cl-tabs { position: sticky; top: -12px; z-index: 2; background: inherit; margin: -6px -20px 4px; padding: 8px 20px 8px; } /* 목록을 내려도 필터가 위에 붙어 있게 */
 .cl-tabs b { font-variant-numeric: tabular-nums; margin-left: 2px; }
 .cl-row { display: flex; gap: 8px; align-items: flex-start; border-top: 1px solid var(--line2); }
 .cl-row:first-child { border-top: none; } .cl-row .sd-it { flex: 1; min-width: 0; border-top: none; }
